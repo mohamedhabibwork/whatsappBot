@@ -3,6 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc";
 import { whatsappInstances, userTenantRoles } from "@repo/database";
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
+import { WhatsAppClient } from "@repo/whatsapp-client-sdk";
+import { trackUsage } from "../utils/subscription-usage";
 
 async function checkTenantAccess(
   db: any,
@@ -29,6 +31,25 @@ async function checkTenantAccess(
   }
 
   return userRole.role;
+}
+
+function getWhatsAppClient(sessionName: string, token?: string): WhatsAppClient {
+  const baseURL = process.env.WHATSAPP_SERVER_URL || "http://localhost:21465";
+  const secretKey = process.env.WHATSAPP_SERVER_SECRET || "";
+
+  if (!secretKey) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "WhatsApp server secret key not configured",
+    });
+  }
+
+  return new WhatsAppClient({
+    baseURL,
+    secretKey,
+    session: sessionName,
+    token,
+  });
 }
 
 export const whatsappRouter = router({
@@ -108,6 +129,32 @@ export const whatsappRouter = router({
 
       await checkTenantAccess(ctx.db, ctx.userId, instance.tenantId);
 
+      // Get fresh QR code from WhatsApp server
+      if (instance.token) {
+        try {
+          const client = getWhatsAppClient(instance.sessionName, instance.token);
+          const qrCodeResponse = await client.auth.getQRCode();
+          
+          if (qrCodeResponse?.base64Qr) {
+            // Update database with fresh QR code
+            await ctx.db
+              .update(whatsappInstances)
+              .set({
+                qrCode: qrCodeResponse.base64Qr,
+                updatedAt: new Date(),
+              })
+              .where(eq(whatsappInstances.id, input.id));
+
+            return {
+              qrCode: qrCodeResponse.base64Qr,
+              status: instance.status,
+            };
+          }
+        } catch (error) {
+          console.error("Failed to get QR code:", error);
+        }
+      }
+
       return {
         qrCode: instance.qrCode,
         status: instance.status,
@@ -120,6 +167,7 @@ export const whatsappRouter = router({
         tenantId: z.string().uuid(),
         name: z.string().min(1).max(100),
         sessionName: z.string().min(1),
+        webhook: z.string().url().optional(),
         config: z.record(z.any()).optional(),
       }),
     )
@@ -147,6 +195,21 @@ export const whatsappRouter = router({
         });
       }
 
+      // Generate token using WhatsApp SDK
+      const client = getWhatsAppClient(input.sessionName);
+      let token: string | undefined;
+
+      try {
+        const tokenResponse = await client.auth.generateToken();
+        token = tokenResponse.token;
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate WhatsApp token",
+          cause: error,
+        });
+      }
+
       const [instance] = await ctx.db
         .insert(whatsappInstances)
         .values({
@@ -154,6 +217,7 @@ export const whatsappRouter = router({
           tenantId: input.tenantId,
           name: input.name,
           sessionName: input.sessionName,
+          token,
           config: input.config,
         })
         .returning();
@@ -163,6 +227,36 @@ export const whatsappRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create WhatsApp instance",
         });
+      }
+
+      // Start session with webhook if provided
+      if (token) {
+        try {
+          client.setAuthToken(token);
+          await client.auth.startSession({
+            webhook: input.webhook,
+            waitQrCode: true,
+          });
+
+          // Get initial QR code
+          const qrCodeResponse = await client.auth.getQRCode();
+          if (qrCodeResponse?.base64Qr) {
+            await ctx.db
+              .update(whatsappInstances)
+              .set({
+                qrCode: qrCodeResponse.base64Qr,
+                status: "connecting",
+                updatedAt: new Date(),
+              })
+              .where(eq(whatsappInstances.id, instance.id));
+
+            instance.qrCode = qrCodeResponse.base64Qr;
+            instance.status = "connecting";
+          }
+        } catch (error) {
+          console.error("Failed to start session:", error);
+          // Don't fail the creation, just log the error
+        }
       }
 
       return { instance };
@@ -342,6 +436,17 @@ export const whatsappRouter = router({
         "admin",
       ]);
 
+      // Logout session using SDK
+      if (existing.token) {
+        try {
+          const client = getWhatsAppClient(existing.sessionName, existing.token);
+          await client.auth.logoutSession();
+        } catch (error) {
+          console.error("Failed to logout session:", error);
+          // Continue with database update even if SDK call fails
+        }
+      }
+
       const [updated] = await ctx.db
         .update(whatsappInstances)
         .set({
@@ -356,7 +461,10 @@ export const whatsappRouter = router({
     }),
 
   reconnect: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ 
+      id: z.string().uuid(),
+      webhook: z.string().url().optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const [existing] = await ctx.db
         .select()
@@ -381,6 +489,45 @@ export const whatsappRouter = router({
         "admin",
       ]);
 
+      // Start session using SDK
+      if (existing.token) {
+        try {
+          const client = getWhatsAppClient(existing.sessionName, existing.token);
+          await client.auth.startSession({
+            webhook: input.webhook,
+            waitQrCode: true,
+          });
+
+          // Get QR code
+          const qrCodeResponse = await client.auth.getQRCode();
+          if (qrCodeResponse?.base64Qr) {
+            await ctx.db
+              .update(whatsappInstances)
+              .set({
+                qrCode: qrCodeResponse.base64Qr,
+                status: "connecting",
+                updatedAt: new Date(),
+              })
+              .where(eq(whatsappInstances.id, input.id));
+
+            const [updated] = await ctx.db
+              .select()
+              .from(whatsappInstances)
+              .where(eq(whatsappInstances.id, input.id))
+              .limit(1);
+
+            return { instance: updated };
+          }
+        } catch (error) {
+          console.error("Failed to reconnect session:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to reconnect session",
+            cause: error,
+          });
+        }
+      }
+
       const [updated] = await ctx.db
         .update(whatsappInstances)
         .set({
@@ -391,5 +538,186 @@ export const whatsappRouter = router({
         .returning();
 
       return { instance: updated };
+    }),
+
+  checkStatus: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [instance] = await ctx.db
+        .select()
+        .from(whatsappInstances)
+        .where(
+          and(
+            eq(whatsappInstances.id, input.id),
+            isNull(whatsappInstances.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!instance) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "WhatsApp instance not found",
+        });
+      }
+
+      await checkTenantAccess(ctx.db, ctx.userId, instance.tenantId);
+
+      // Get status from WhatsApp server
+      if (instance.token) {
+        try {
+          const client = getWhatsAppClient(instance.sessionName, instance.token);
+          const status = await client.auth.checkConnection();
+          
+          // Update database with current status
+          await ctx.db
+            .update(whatsappInstances)
+            .set({
+              status: status.state.toLowerCase(),
+              updatedAt: new Date(),
+            })
+            .where(eq(whatsappInstances.id, input.id));
+
+          return {
+            status: status.state,
+            qrcode: status.qrcode,
+          };
+        } catch (error) {
+          console.error("Failed to check status:", error);
+        }
+      }
+
+      return {
+        status: instance.status,
+      };
+    }),
+
+  sendMessage: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        phone: z.string().min(1),
+        message: z.string().min(1),
+        isGroup: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [instance] = await ctx.db
+        .select()
+        .from(whatsappInstances)
+        .where(
+          and(
+            eq(whatsappInstances.id, input.id),
+            isNull(whatsappInstances.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!instance) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "WhatsApp instance not found",
+        });
+      }
+
+      await checkTenantAccess(ctx.db, ctx.userId, instance.tenantId);
+
+      if (!instance.token) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "WhatsApp instance is not authenticated",
+        });
+      }
+
+      // Track usage before sending
+      try {
+        await trackUsage({
+          db: ctx.db,
+          tenantId: instance.tenantId,
+          featureKey: "messages_sent",
+          incrementBy: 1,
+          metadata: {
+            instanceId: instance.id,
+            phone: input.phone,
+            isGroup: input.isGroup,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } catch (error: any) {
+        // If usage tracking fails due to limits, throw proper error
+        if (error.code === "FORBIDDEN" || error.code === "PRECONDITION_FAILED") {
+          throw error;
+        }
+        // Log other errors but continue
+        console.error("Usage tracking error:", error);
+      }
+
+      try {
+        const client = getWhatsAppClient(instance.sessionName, instance.token);
+        const result = await client.messages.sendMessage({
+          phone: input.phone,
+          message: input.message,
+          isGroup: input.isGroup,
+        });
+
+        return {
+          success: true,
+          messageId: result.id,
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to send message",
+          cause: error,
+        });
+      }
+    }),
+
+  getSessionInfo: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [instance] = await ctx.db
+        .select()
+        .from(whatsappInstances)
+        .where(
+          and(
+            eq(whatsappInstances.id, input.id),
+            isNull(whatsappInstances.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!instance) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "WhatsApp instance not found",
+        });
+      }
+
+      await checkTenantAccess(ctx.db, ctx.userId, instance.tenantId);
+
+      if (!instance.token) {
+        return {
+          instance,
+          connected: false,
+        };
+      }
+
+      try {
+        const client = getWhatsAppClient(instance.sessionName, instance.token);
+        const status = await client.auth.getSessionStatus();
+        
+        return {
+          instance,
+          connected: status.state === "CONNECTED",
+          sessionState: status.state,
+        };
+      } catch (error) {
+        console.error("Failed to get session info:", error);
+        return {
+          instance,
+          connected: false,
+        };
+      }
     }),
 });

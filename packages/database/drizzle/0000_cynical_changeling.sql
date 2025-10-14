@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS "whatsapp_instances" (
 	"phone_number" text,
 	"status" text DEFAULT 'disconnected' NOT NULL,
 	"qr_code" text,
+	"token" text,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"config" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -226,6 +227,20 @@ CREATE TABLE IF NOT EXISTS "subscription_features" (
 	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "subscription_usages" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"subscription_id" uuid NOT NULL,
+	"tenant_id" uuid NOT NULL,
+	"feature_key" text NOT NULL,
+	"usage_count" integer DEFAULT 0 NOT NULL,
+	"limit" integer,
+	"period_start" timestamp with time zone NOT NULL,
+	"period_end" timestamp with time zone NOT NULL,
+	"metadata" jsonb DEFAULT '{}'::jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "invoices" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"invoice_number" text NOT NULL,
@@ -305,6 +320,8 @@ CREATE TABLE IF NOT EXISTS "contacts" (
 	"phone_number" text NOT NULL,
 	"name" text,
 	"is_active" boolean DEFAULT true NOT NULL,
+	"timezone" text,
+	"language" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"deleted_at" timestamp with time zone
@@ -317,6 +334,8 @@ CREATE TABLE IF NOT EXISTS "groups" (
 	"name" text NOT NULL,
 	"description" text,
 	"is_active" boolean DEFAULT true NOT NULL,
+	"timezone" text,
+	"language" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"deleted_at" timestamp with time zone
@@ -358,6 +377,8 @@ CREATE TABLE IF NOT EXISTS "campaigns" (
 	"sent_count" integer DEFAULT 0 NOT NULL,
 	"failed_count" integer DEFAULT 0 NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
+	"timezone" text,
+	"language" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"deleted_at" timestamp with time zone
@@ -542,6 +563,18 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "subscription_features" ADD CONSTRAINT "subscription_features_plan_feature_id_plan_features_id_fk" FOREIGN KEY ("plan_feature_id") REFERENCES "public"."plan_features"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "subscription_usages" ADD CONSTRAINT "subscription_usages_subscription_id_subscriptions_id_fk" FOREIGN KEY ("subscription_id") REFERENCES "public"."subscriptions"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "subscription_usages" ADD CONSTRAINT "subscription_usages_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;

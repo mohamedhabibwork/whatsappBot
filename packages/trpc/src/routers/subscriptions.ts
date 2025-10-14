@@ -4,6 +4,7 @@ import { router, protectedProcedure, adminProcedure } from "../trpc";
 import {
   subscriptions,
   subscriptionFeatures,
+  subscriptionUsages,
   plans,
   planFeatures,
   userTenantRoles,
@@ -11,6 +12,11 @@ import {
   type NewSubscriptionFeature,
 } from "@repo/database";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
+import {
+  getUsageStats,
+  checkUsageLimit,
+  initializeUsage,
+} from "../utils/subscription-usage";
 
 // Helper to check if user has access to tenant
 async function checkTenantAccess(
@@ -435,5 +441,152 @@ export const subscriptionsRouter = router({
         .returning();
 
       return { subscription: updatedSubscription };
+    }),
+
+  // Get usage statistics for a tenant
+  getUsageStats: protectedProcedure
+    .input(z.object({ tenantId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
+        "owner",
+        "admin",
+        "member",
+      ]);
+
+      const usages = await getUsageStats(ctx.db, input.tenantId);
+
+      return { usages };
+    }),
+
+  // Check specific feature usage limit
+  checkUsageLimit: protectedProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        featureKey: z.enum([
+          "messages_sent",
+          "api_calls",
+          "whatsapp_instances",
+          "contacts",
+          "campaigns",
+        ]),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
+        "owner",
+        "admin",
+        "member",
+      ]);
+
+      const limit = await checkUsageLimit({
+        db: ctx.db,
+        tenantId: input.tenantId,
+        featureKey: input.featureKey,
+      });
+
+      return limit;
+    }),
+
+  // Initialize usage for a feature
+  initializeFeatureUsage: protectedProcedure
+    .input(
+      z.object({
+        tenantId: z.string().uuid(),
+        featureKey: z.enum([
+          "messages_sent",
+          "api_calls",
+          "whatsapp_instances",
+          "contacts",
+          "campaigns",
+        ]),
+        limit: z.number().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
+        "owner",
+        "admin",
+      ]);
+
+      // Get active subscription
+      const [subscription] = await ctx.db
+        .select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.tenantId, input.tenantId),
+            eq(subscriptions.status, "active"),
+          ),
+        )
+        .limit(1);
+
+      if (!subscription) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No active subscription found",
+        });
+      }
+
+      const usage = await initializeUsage(
+        ctx.db,
+        input.tenantId,
+        subscription.id,
+        input.featureKey,
+        input.limit,
+      );
+
+      return { usage };
+    }),
+
+  // Get current period usage details
+  getCurrentUsage: protectedProcedure
+    .input(z.object({ tenantId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
+        "owner",
+        "admin",
+        "member",
+      ]);
+
+      const now = new Date();
+
+      // Get active subscription
+      const [subscription] = await ctx.db
+        .select()
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.tenantId, input.tenantId),
+            eq(subscriptions.status, "active"),
+          ),
+        )
+        .limit(1);
+
+      if (!subscription) {
+        return {
+          hasSubscription: false,
+          usages: [],
+        };
+      }
+
+      // Get all usages for current period
+      const usages = await ctx.db
+        .select()
+        .from(subscriptionUsages)
+        .where(
+          and(
+            eq(subscriptionUsages.subscriptionId, subscription.id),
+            eq(subscriptionUsages.tenantId, input.tenantId),
+            lte(subscriptionUsages.periodStart, now),
+            gte(subscriptionUsages.periodEnd, now),
+          ),
+        );
+
+      return {
+        hasSubscription: true,
+        subscription,
+        usages,
+      };
     }),
 });

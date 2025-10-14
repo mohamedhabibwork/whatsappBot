@@ -22,6 +22,7 @@ export const whatsappInstances = pgTable("whatsapp_instances", {
   phoneNumber: text("phone_number"),
   status: text("status").notNull().default("disconnected"),
   qrCode: text("qr_code"),
+  token: text("token"),
   isActive: boolean("is_active").notNull().default(true),
   config: jsonb("config"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

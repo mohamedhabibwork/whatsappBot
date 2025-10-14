@@ -14,6 +14,7 @@ export * from "./plans";
 export * from "./plan-features";
 export * from "./subscriptions";
 export * from "./subscription-features";
+export * from "./subscription-usages";
 export * from "./invoices";
 export * from "./invoice-items";
 export * from "./payments";
