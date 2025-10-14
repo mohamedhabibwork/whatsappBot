@@ -32,6 +32,15 @@ export interface BaseWebSocketMessage<T = any> {
   language?: Language;
 }
 
+export interface ConnectedMessage
+  extends BaseWebSocketMessage<{
+    clientId: string;
+    authenticated: boolean;
+    userId?: string;
+  }> {
+  type: "connected";
+}
+
 export interface MessageMessage
   extends BaseWebSocketMessage<{
     from: string;
