@@ -7,6 +7,6 @@ export default defineConfig({
   dbCredentials: {
     url:
       process.env.DATABASE_URL ||
-      "postgresql://postgres:@localhost:5432/whatsapp_bot",
+      "postgresql://postgres:.@localhost:5432/whatsapp_bot",
   },
 });

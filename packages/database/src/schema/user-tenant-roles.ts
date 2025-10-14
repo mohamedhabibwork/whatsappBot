@@ -18,8 +18,9 @@ export const userTenantRoles = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
     role: text("role").notNull(), // 'owner', 'admin', 'member', 'viewer', etc.
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.userId, table.tenantId] }),

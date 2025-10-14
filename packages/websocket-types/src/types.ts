@@ -23,7 +23,24 @@ export type WebSocketMessageType =
   | "message_deleted"
   | "whatsapp_status"
   | "whatsapp_qr"
-  | "whatsapp_message";
+  | "whatsapp_message"
+  | "contact_created"
+  | "contact_updated"
+  | "contact_deleted"
+  | "group_created"
+  | "group_updated"
+  | "group_deleted"
+  | "campaign_created"
+  | "campaign_updated"
+  | "campaign_deleted"
+  | "campaign_status_changed"
+  | "template_created"
+  | "template_updated"
+  | "template_deleted"
+  | "webhook_created"
+  | "webhook_updated"
+  | "webhook_deleted"
+  | "webhook_triggered";
 
 export interface BaseWebSocketMessage<T = any> {
   type: WebSocketMessageType;
@@ -225,6 +242,157 @@ export interface WhatsAppMessageMessage
   type: "whatsapp_message";
 }
 
+export interface ContactCreatedMessage
+  extends BaseWebSocketMessage<{
+    contactId: string;
+    tenantId: string;
+    phoneNumber: string;
+    name?: string;
+  }> {
+  type: "contact_created";
+}
+
+export interface ContactUpdatedMessage
+  extends BaseWebSocketMessage<{
+    contactId: string;
+    tenantId: string;
+    changes: string[];
+  }> {
+  type: "contact_updated";
+}
+
+export interface ContactDeletedMessage
+  extends BaseWebSocketMessage<{
+    contactId: string;
+    tenantId: string;
+  }> {
+  type: "contact_deleted";
+}
+
+export interface GroupCreatedMessage
+  extends BaseWebSocketMessage<{
+    groupId: string;
+    tenantId: string;
+    name: string;
+  }> {
+  type: "group_created";
+}
+
+export interface GroupUpdatedMessage
+  extends BaseWebSocketMessage<{
+    groupId: string;
+    tenantId: string;
+    changes: string[];
+  }> {
+  type: "group_updated";
+}
+
+export interface GroupDeletedMessage
+  extends BaseWebSocketMessage<{
+    groupId: string;
+    tenantId: string;
+  }> {
+  type: "group_deleted";
+}
+
+export interface CampaignCreatedMessage
+  extends BaseWebSocketMessage<{
+    campaignId: string;
+    tenantId: string;
+    name: string;
+  }> {
+  type: "campaign_created";
+}
+
+export interface CampaignUpdatedMessage
+  extends BaseWebSocketMessage<{
+    campaignId: string;
+    tenantId: string;
+    changes: string[];
+  }> {
+  type: "campaign_updated";
+}
+
+export interface CampaignDeletedMessage
+  extends BaseWebSocketMessage<{
+    campaignId: string;
+    tenantId: string;
+  }> {
+  type: "campaign_deleted";
+}
+
+export interface CampaignStatusChangedMessage
+  extends BaseWebSocketMessage<{
+    campaignId: string;
+    tenantId: string;
+    status: string;
+    previousStatus: string;
+  }> {
+  type: "campaign_status_changed";
+}
+
+export interface TemplateCreatedMessage
+  extends BaseWebSocketMessage<{
+    templateId: string;
+    tenantId: string;
+    name: string;
+  }> {
+  type: "template_created";
+}
+
+export interface TemplateUpdatedMessage
+  extends BaseWebSocketMessage<{
+    templateId: string;
+    tenantId: string;
+    changes: string[];
+  }> {
+  type: "template_updated";
+}
+
+export interface TemplateDeletedMessage
+  extends BaseWebSocketMessage<{
+    templateId: string;
+    tenantId: string;
+  }> {
+  type: "template_deleted";
+}
+
+export interface WebhookCreatedMessage
+  extends BaseWebSocketMessage<{
+    webhookId: string;
+    tenantId: string;
+    name: string;
+  }> {
+  type: "webhook_created";
+}
+
+export interface WebhookUpdatedMessage
+  extends BaseWebSocketMessage<{
+    webhookId: string;
+    tenantId: string;
+    changes: string[];
+  }> {
+  type: "webhook_updated";
+}
+
+export interface WebhookDeletedMessage
+  extends BaseWebSocketMessage<{
+    webhookId: string;
+    tenantId: string;
+  }> {
+  type: "webhook_deleted";
+}
+
+export interface WebhookTriggeredMessage
+  extends BaseWebSocketMessage<{
+    webhookId: string;
+    tenantId: string;
+    event: string;
+    success: boolean;
+  }> {
+  type: "webhook_triggered";
+}
+
 export type WebSocketMessage =
   | ConnectedMessage
   | BroadcastSentMessage
@@ -248,4 +416,21 @@ export type WebSocketMessage =
   | MessageDeletedMessage
   | WhatsAppStatusMessage
   | WhatsAppQRMessage
-  | WhatsAppMessageMessage;
+  | WhatsAppMessageMessage
+  | ContactCreatedMessage
+  | ContactUpdatedMessage
+  | ContactDeletedMessage
+  | GroupCreatedMessage
+  | GroupUpdatedMessage
+  | GroupDeletedMessage
+  | CampaignCreatedMessage
+  | CampaignUpdatedMessage
+  | CampaignDeletedMessage
+  | CampaignStatusChangedMessage
+  | TemplateCreatedMessage
+  | TemplateUpdatedMessage
+  | TemplateDeletedMessage
+  | WebhookCreatedMessage
+  | WebhookUpdatedMessage
+  | WebhookDeletedMessage
+  | WebhookTriggeredMessage;

@@ -1,0 +1,88 @@
+{
+  "plans": {
+    "created": "Plan created successfully",
+    "updated": "Plan updated successfully",
+    "deleted": "Plan deleted successfully",
+    "notFound": "Plan not found",
+    "notActive": "Plan is not active",
+    "list": "Plans list",
+    "details": "Plan details"
+  },
+  "features": {
+    "added": "Feature added successfully",
+    "updated": "Feature updated successfully",
+    "deleted": "Feature deleted successfully",
+    "notFound": "Feature not found"
+  },
+  "subscriptions": {
+    "created": "Subscription created successfully",
+    "updated": "Subscription updated successfully",
+    "cancelled": "Subscription cancelled successfully",
+    "renewed": "Subscription renewed successfully",
+    "notFound": "Subscription not found",
+    "alreadyActive": "Active subscription already exists",
+    "status": {
+      "active": "Active",
+      "cancelled": "Cancelled",
+      "expired": "Expired",
+      "trial": "Trial",
+      "past_due": "Past Due"
+    }
+  },
+  "invoices": {
+    "created": "Invoice created successfully",
+    "updated": "Invoice updated successfully",
+    "deleted": "Invoice deleted successfully",
+    "notFound": "Invoice not found",
+    "markedAsPaid": "Invoice marked as paid",
+    "cannotDelete": "Only draft invoices can be deleted",
+    "status": {
+      "draft": "Draft",
+      "pending": "Pending",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    }
+  },
+  "payments": {
+    "created": "Payment created successfully",
+    "updated": "Payment updated successfully",
+    "completed": "Payment completed successfully",
+    "failed": "Payment failed",
+    "refunded": "Payment refunded successfully",
+    "notFound": "Payment not found",
+    "cannotRefund": "Only completed payments can be refunded",
+    "refundExceeds": "Refund amount exceeds payment amount",
+    "status": {
+      "pending": "Pending",
+      "completed": "Completed",
+      "failed": "Failed",
+      "refunded": "Refunded",
+      "cancelled": "Cancelled"
+    },
+    "methods": {
+      "credit_card": "Credit Card",
+      "bank_transfer": "Bank Transfer",
+      "paypal": "PayPal",
+      "stripe": "Stripe"
+    }
+  },
+  "billing": {
+    "cycle": {
+      "monthly": "Monthly",
+      "quarterly": "Quarterly",
+      "yearly": "Yearly"
+    },
+    "currency": {
+      "USD": "US Dollar",
+      "EUR": "Euro",
+      "GBP": "British Pound"
+    }
+  },
+  "errors": {
+    "invalidSubscription": "Invalid subscription",
+    "invalidInvoice": "Invalid invoice",
+    "permissionDenied": "You do not have permission to perform this action",
+    "tenantAccessDenied": "You do not have permission to access this tenant"
+  }
+}

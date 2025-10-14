@@ -14,13 +14,14 @@ export const tenantInvitations = pgTable("tenant_invitations", {
   role: text("role").notNull().default("member"), // 'admin', 'member', 'viewer'
   token: text("token").notNull().unique(),
   status: text("status").notNull().default("pending"), // 'pending', 'accepted', 'expired', 'cancelled'
-  expiresAt: timestamp("expires_at").notNull(),
-  acceptedAt: timestamp("accepted_at"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   acceptedBy: uuid("accepted_by").references(() => users.id, {
     onDelete: "set null",
   }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export type TenantInvitation = typeof tenantInvitations.$inferSelect;

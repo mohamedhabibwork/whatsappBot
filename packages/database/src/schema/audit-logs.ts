@@ -8,7 +8,8 @@ export const auditLogs = pgTable("audit_logs", {
   details: jsonb("details"),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export type AuditLog = typeof auditLogs.$inferSelect;

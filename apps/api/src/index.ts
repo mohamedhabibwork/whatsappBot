@@ -7,6 +7,7 @@ import {
   appRouter,
   createContext,
   setAuthEventSender,
+  setBroadcastFunction,
 } from "@repo/trpc/server";
 import { rabbitMQ, initializeQueues } from "@repo/queue";
 import { redisClient } from "@repo/cache";
@@ -14,6 +15,8 @@ import { mailClient } from "@repo/mail";
 import { authMiddleware } from "./middleware/auth";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
 import { i18nMiddleware } from "./middleware/i18n";
+import { performanceMiddleware, getPerformanceStats } from "./middleware/performance";
+import { getTenantId } from "./middleware/tenant";
 import { i18n, supportedLanguages, type Language as I18nLanguage } from "./i18n";
 import {
   handleWebSocketUpgrade,
@@ -28,6 +31,7 @@ const app = new Hono();
 
 // Middleware
 app.use("*", logger());
+app.use("*", performanceMiddleware);
 app.use(
   "*",
   cors({
@@ -95,6 +99,12 @@ app.get("/api/ws/stats", authMiddleware, (c) => {
   return c.json(stats);
 });
 
+// Performance stats endpoint (protected)
+app.get("/api/performance/stats", authMiddleware, (c) => {
+  const stats = getPerformanceStats();
+  return c.json(stats);
+});
+
 // tRPC routes with auth
 app.use("/api/trpc/*", async (c, next) => {
   const authorization = c.req.header("authorization");
@@ -114,8 +124,14 @@ app.use(
     router: appRouter,
     createContext: async (opts, c) => {
       const auth = c.get("auth");
+      const userId = auth?.userId;
+      
+      // Get tenant ID from request
+      const tenantId = userId ? await getTenantId(c, userId) : undefined;
+      
       return createContext({
-        userId: auth?.userId,
+        userId,
+        tenantId,
       });
     },
   }),
@@ -151,6 +167,17 @@ async function initializeServices() {
       sendAuthEvent(userId, event as any, language);
     });
     console.log("✓ WebSocket auth events initialized");
+
+    // Initialize WebSocket broadcast function for tRPC events
+    setBroadcastFunction((type: string, payload: any, language?: Language) => {
+      wsManager.broadcast({
+        type: type as any,
+        payload,
+        timestamp: new Date().toISOString(),
+        language,
+      });
+    });
+    console.log("✓ WebSocket broadcast function initialized");
 
     console.log("All services initialized successfully");
   } catch (error) {

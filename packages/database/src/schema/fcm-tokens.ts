@@ -16,8 +16,9 @@ export const fcmTokens = pgTable("fcm_tokens", {
   deviceId: text("device_id"),
   deviceType: text("device_type"), // 'android', 'ios', 'web'
   deviceName: text("device_name"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export type FcmToken = typeof fcmTokens.$inferSelect;

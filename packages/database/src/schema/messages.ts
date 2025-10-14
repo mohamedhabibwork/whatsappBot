@@ -20,9 +20,10 @@ export const messages = pgTable("messages", {
   recipient: text("recipient"),
   body: text("body"),
   type: text("type").notNull().default("text"),
-  timestamp: timestamp("timestamp").notNull(),
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
   metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export type Message = typeof messages.$inferSelect;

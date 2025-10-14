@@ -14,8 +14,9 @@ export const tenants = pgTable("tenants", {
   domain: text("domain"),
   isActive: boolean("is_active").notNull().default(true),
   settings: jsonb("settings").default({}),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export type Tenant = typeof tenants.$inferSelect;

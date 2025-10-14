@@ -22,7 +22,6 @@ export const usersRouter = router({
           id: users.id,
           email: users.email,
           name: users.name,
-          role: users.role,
           isActive: users.isActive,
           createdAt: users.createdAt,
         })
@@ -34,12 +33,11 @@ export const usersRouter = router({
     }),
 
   me: protectedProcedure.query(async ({ ctx }) => {
-    const user = await ctx.db
+    const [user] = await ctx.db
       .select({
         id: users.id,
         email: users.email,
         name: users.name,
-        role: users.role,
         isActive: users.isActive,
         createdAt: users.createdAt,
       })
@@ -47,7 +45,7 @@ export const usersRouter = router({
       .where(eq(users.id, ctx.userId))
       .limit(1);
 
-    return user[0] || null;
+    return user || null;
   }),
 
   updateProfile: protectedProcedure

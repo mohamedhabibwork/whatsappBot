@@ -1,0 +1,88 @@
+{
+  "plans": {
+    "created": "تم إنشاء الخطة بنجاح",
+    "updated": "تم تحديث الخطة بنجاح",
+    "deleted": "تم حذف الخطة بنجاح",
+    "notFound": "الخطة غير موجودة",
+    "notActive": "الخطة غير نشطة",
+    "list": "قائمة الخطط",
+    "details": "تفاصيل الخطة"
+  },
+  "features": {
+    "added": "تمت إضافة الميزة بنجاح",
+    "updated": "تم تحديث الميزة بنجاح",
+    "deleted": "تم حذف الميزة بنجاح",
+    "notFound": "الميزة غير موجودة"
+  },
+  "subscriptions": {
+    "created": "تم إنشاء الاشتراك بنجاح",
+    "updated": "تم تحديث الاشتراك بنجاح",
+    "cancelled": "تم إلغاء الاشتراك بنجاح",
+    "renewed": "تم تجديد الاشتراك بنجاح",
+    "notFound": "الاشتراك غير موجود",
+    "alreadyActive": "يوجد اشتراك نشط بالفعل",
+    "status": {
+      "active": "نشط",
+      "cancelled": "ملغى",
+      "expired": "منتهي الصلاحية",
+      "trial": "تجريبي",
+      "past_due": "متأخر"
+    }
+  },
+  "invoices": {
+    "created": "تم إنشاء الفاتورة بنجاح",
+    "updated": "تم تحديث الفاتورة بنجاح",
+    "deleted": "تم حذف الفاتورة بنجاح",
+    "notFound": "الفاتورة غير موجودة",
+    "markedAsPaid": "تم وضع علامة مدفوعة على الفاتورة",
+    "cannotDelete": "يمكن حذف الفواتير المسودة فقط",
+    "status": {
+      "draft": "مسودة",
+      "pending": "قيد الانتظار",
+      "paid": "مدفوعة",
+      "cancelled": "ملغاة",
+      "refunded": "مستردة"
+    }
+  },
+  "payments": {
+    "created": "تم إنشاء الدفعة بنجاح",
+    "updated": "تم تحديث الدفعة بنجاح",
+    "completed": "تمت الدفعة بنجاح",
+    "failed": "فشلت الدفعة",
+    "refunded": "تم استرداد الدفعة بنجاح",
+    "notFound": "الدفعة غير موجودة",
+    "cannotRefund": "يمكن استرداد الدفعات المكتملة فقط",
+    "refundExceeds": "مبلغ الاسترداد يتجاوز مبلغ الدفع",
+    "status": {
+      "pending": "قيد الانتظار",
+      "completed": "مكتملة",
+      "failed": "فاشلة",
+      "refunded": "مستردة",
+      "cancelled": "ملغاة"
+    },
+    "methods": {
+      "credit_card": "بطاقة ائتمان",
+      "bank_transfer": "تحويل بنكي",
+      "paypal": "باي بال",
+      "stripe": "سترايب"
+    }
+  },
+  "billing": {
+    "cycle": {
+      "monthly": "شهري",
+      "quarterly": "ربع سنوي",
+      "yearly": "سنوي"
+    },
+    "currency": {
+      "USD": "دولار أمريكي",
+      "EUR": "يورو",
+      "GBP": "جنيه إسترليني"
+    }
+  },
+  "errors": {
+    "invalidSubscription": "اشتراك غير صالح",
+    "invalidInvoice": "فاتورة غير صالحة",
+    "permissionDenied": "ليس لديك إذن لتنفيذ هذا الإجراء",
+    "tenantAccessDenied": "ليس لديك إذن للوصول إلى هذا المستأجر"
+  }
+}
