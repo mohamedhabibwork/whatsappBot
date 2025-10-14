@@ -1,0 +1,15 @@
+{
+  "name": "@repo/mail",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "nodemailer": "^6.9.14",
+    "handlebars": "^4.7.8"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^6.4.15",
+    "typescript": "^5.6.3"
+  }
+}

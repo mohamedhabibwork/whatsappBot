@@ -1,36 +1,219 @@
-# Turborepo starter
+# WhatsApp Bot - Enterprise Monorepo
 
-This Turborepo starter is maintained by the Turborepo core team.
+A production-ready WhatsApp bot platform built with modern technologies and clean architecture.
 
-## Using this example
+## Tech Stack
 
-Run the following command:
+- **Runtime**: Bun
+- **Framework**: Hono
+- **Database**: PostgreSQL + Drizzle ORM
+- **Cache**: Redis
+- **API**: tRPC (type-safe APIs)
+- **Queue**: RabbitMQ
+- **Auth**: JWT
+- **Rate Limiting**: hono-rate-limiter
+- **WebSocket**: @hono/node-ws
+- **Monorepo**: Turborepo
 
-```sh
-npx create-turbo@latest
-```
-
-## What's inside?
-
-This Turborepo includes the following packages/apps:
+## Project Structure
 
 ### Apps and Packages
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- `api`: Backend API server with tRPC, JWT auth, and queue integration
+- `web`: Next.js frontend application
+- `docs`: Documentation site
+- `wppconnect-server`: WhatsApp connection server
+- `@repo/database`: Database schemas and Drizzle ORM client
+- `@repo/trpc`: tRPC routers and type-safe API definitions
+- `@repo/queue`: RabbitMQ queue management
+- `@repo/cache`: Redis caching utilities
+- `@repo/ui`: Shared React component library
+- `@repo/eslint-config`: Shared ESLint configurations
+- `@repo/typescript-config`: Shared TypeScript configurations
 
 Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
 
-### Utilities
+## Quick Start
 
-This Turborepo has some additional tools already setup for you:
+### Prerequisites
+
+- Bun 1.2.23+
+- Docker & Docker Compose (optional, for local development)
+- PostgreSQL 16+
+- Redis 7+
+- RabbitMQ 3+
+
+### Installation
+
+1. **Clone the repository**
+
+```bash
+git clone <repository-url>
+cd new-whatsapp-bot
+```
+
+2. **Install dependencies**
+
+```bash
+bun install
+```
+
+3. **Set up environment variables**
+
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+4. **Start infrastructure (Docker)**
+
+```bash
+docker-compose up -d postgres redis rabbitmq
+```
+
+5. **Run database migrations**
+
+```bash
+cd packages/database
+bun run db:generate
+bun run db:migrate
+```
+
+6. **Start development servers**
+
+```bash
+bun run dev
+```
+
+The API will be available at `http://localhost:3001`
+
+## Database Management
+
+### Generate migration
+
+```bash
+cd packages/database
+bun run db:generate
+```
+
+### Run migrations
+
+```bash
+bun run db:migrate
+```
+
+### Push schema directly (dev only)
+
+```bash
+bun run db:push
+```
+
+### Open Drizzle Studio
+
+```bash
+bun run db:studio
+```
+
+## API Endpoints
+
+### Authentication
+
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login user
+- `GET /api/auth/me` - Get current user (requires auth)
+
+### tRPC API
+
+All tRPC endpoints are available at `/api/trpc/*`
+
+**Available routers:**
+
+- `users.*` - User management
+- `whatsapp.*` - WhatsApp instance management
+- `messages.*` - Message history
+
+### Example tRPC Usage
+
+```typescript
+// Client-side
+import { createClient } from "@repo/trpc/client";
+
+const client = createClient("http://localhost:3001/api/trpc", () => {
+  return localStorage.getItem("token");
+});
+
+// Get current user
+const me = await client.users.me.query();
+
+// List WhatsApp instances
+const instances = await client.whatsapp.list.query();
+
+// Create new instance
+const newInstance = await client.whatsapp.create.mutate({
+  name: "My Bot",
+  sessionName: "my-bot-session",
+});
+```
+
+## Queue System
+
+### Available Queues
+
+- **whatsapp.send-message** - Send WhatsApp messages
+- **whatsapp.instance-status** - Instance status updates
+- **whatsapp.message-received** - Process received messages
+- **notifications.email** - Send email notifications
+- **notifications.webhook** - Send webhook notifications
+
+### Publishing Messages
+
+```typescript
+import { initializeQueues } from "@repo/queue";
+
+const queues = await initializeQueues();
+
+// Send WhatsApp message
+await queues.sendMessage.publish({
+  instanceId: "uuid-here",
+  chatId: "1234567890@c.us",
+  message: "Hello!",
+  type: "text",
+});
+```
+
+## Deployment
+
+### Using Docker Compose
+
+```bash
+docker-compose up -d
+```
+
+This starts:
+
+- PostgreSQL database
+- RabbitMQ message broker
+- API server
+
+### Environment Variables
+
+See `.env.example` for all available configuration options.
+
+**Required:**
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `RABBITMQ_URL` - RabbitMQ connection string
+- `JWT_SECRET` - Secret key for JWT tokens
+
+## Development Tools
+
+This Turborepo has the following tools setup:
 
 - [TypeScript](https://www.typescriptlang.org/) for static type checking
 - [ESLint](https://eslint.org/) for code linting
 - [Prettier](https://prettier.io) for code formatting
+- [Drizzle ORM](https://orm.drizzle.team/) for database management
+- [tRPC](https://trpc.io/) for type-safe APIs
 
 ### Build
 
