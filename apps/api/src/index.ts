@@ -13,6 +13,8 @@ import { redisClient } from "@repo/cache";
 import { mailClient } from "@repo/mail";
 import { authMiddleware } from "./middleware/auth";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
+import { i18nMiddleware } from "./middleware/i18n";
+import { i18n, supportedLanguages, type Language as I18nLanguage } from "./i18n";
 import {
   handleWebSocketUpgrade,
   handleWebSocketMessage,
@@ -36,6 +38,9 @@ app.use(
   }),
 );
 
+// i18n middleware
+app.use("*", i18nMiddleware);
+
 // Apply rate limiting to all API routes
 app.use("/api/*", rateLimitMiddleware);
 
@@ -50,6 +55,33 @@ app.get("/health", (c) => {
       mail: mailClient.isConnected(),
     },
   });
+});
+
+// Locale endpoints
+app.get("/api/locales", (c) => {
+  return c.json({
+    languages: supportedLanguages,
+    default: "en",
+  });
+});
+
+app.get("/api/locales/:lang/:namespace", async (c) => {
+  const lang = c.req.param("lang") as I18nLanguage;
+  const namespace = c.req.param("namespace");
+
+  if (!supportedLanguages.includes(lang)) {
+    return c.json({ error: "Language not supported" }, 400);
+  }
+
+  try {
+    const translations = await i18n.getResourceBundle(lang, namespace);
+    if (!translations) {
+      return c.json({ error: "Namespace not found" }, 404);
+    }
+    return c.json(translations);
+  } catch (error) {
+    return c.json({ error: "Failed to load translations" }, 500);
+  }
 });
 
 // WebSocket endpoint (handled by Bun server)

@@ -3,12 +3,15 @@ import { rabbitMQ } from "./connection";
 export interface EmailJob {
   to: string;
   subject: string;
-  template: "verifyEmail" | "resetPassword" | "welcomeEmail";
+  template: "verifyEmail" | "resetPassword" | "welcomeEmail" | "tenantInvitation";
   language: "en" | "ar";
   data: {
     name: string;
     url?: string;
     expirationHours?: number;
+    tenantName?: string;
+    inviterName?: string;
+    role?: string;
   };
 }
 
@@ -79,6 +82,34 @@ export class EmailQueue {
       data: {
         name,
         url: loginUrl,
+      },
+    });
+  }
+
+  async addTenantInvitationEmail(
+    to: string,
+    name: string,
+    tenantName: string,
+    inviterName: string,
+    invitationUrl: string,
+    role: string,
+    language: "en" | "ar" = "en",
+  ): Promise<void> {
+    await this.add({
+      to,
+      subject:
+        language === "ar"
+          ? `تمت دعوتك للانضمام إلى ${tenantName}`
+          : `You've been invited to join ${tenantName}`,
+      template: "tenantInvitation",
+      language,
+      data: {
+        name,
+        url: invitationUrl,
+        tenantName,
+        inviterName,
+        role,
+        expirationHours: 168, // 7 days
       },
     });
   }

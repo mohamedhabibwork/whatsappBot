@@ -1,0 +1,75 @@
+{
+  "welcome": "Welcome",
+  "error": {
+    "unauthorized": "Unauthorized access",
+    "forbidden": "Access forbidden",
+    "notFound": "Resource not found",
+    "validation": "Validation error",
+    "internal": "Internal server error"
+  },
+  "auth": {
+    "loginSuccess": "Login successful",
+    "logoutSuccess": "Logout successful",
+    "invalidCredentials": "Invalid credentials",
+    "tokenExpired": "Token expired",
+    "emailRequired": "Email is required",
+    "passwordRequired": "Password is required"
+  },
+  "user": {
+    "created": "User created successfully",
+    "updated": "User updated successfully",
+    "deleted": "User deleted successfully",
+    "notFound": "User not found"
+  },
+  "validation": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email format",
+    "minLength": "Minimum length is {{min}} characters",
+    "maxLength": "Maximum length is {{max}} characters"
+  },
+  "email": {
+    "verifyEmail": {
+      "subject": "Verify Your Email Address",
+      "greeting": "Hello {{name}}",
+      "thankYou": "Thank you for registering. Please click the button below to verify your email address:",
+      "button": "Verify Email",
+      "orCopy": "Or copy and paste this link in your browser:",
+      "expiration": "This link will expire in {{expirationHours}} hours.",
+      "ignore": "If you didn't create an account, you can safely ignore this email."
+    },
+    "resetPassword": {
+      "subject": "Reset Your Password",
+      "greeting": "Hello {{name}}",
+      "message": "We received a request to reset your password. Click the button below to create a new password:",
+      "button": "Reset Password",
+      "orCopy": "Or copy and paste this link in your browser:",
+      "expiration": "This link will expire in {{expirationHours}} hours.",
+      "ignore": "If you didn't request a password reset, you can safely ignore this email. Your password won't be changed."
+    },
+    "welcomeEmail": {
+      "subject": "Welcome!",
+      "greeting": "Hello {{name}}!",
+      "excited": "We're excited to have you on board.",
+      "canLogin": "You can now log in and start using our services.",
+      "button": "Log In",
+      "questions": "If you have any questions, feel free to reach out to us.",
+      "regards": "Best regards,",
+      "team": "Support Team"
+    },
+    "tenantInvitation": {
+      "subject": "You've been invited to join {{tenantName}}",
+      "greeting": "Hello {{name}}",
+      "message": "{{inviterName}} has invited you to join {{tenantName}} as a {{role}}.",
+      "button": "Accept Invitation",
+      "orCopy": "Or copy and paste this link in your browser:",
+      "expiration": "This invitation will expire in {{expirationHours}} hours.",
+      "ignore": "If you don't want to accept this invitation, you can safely ignore this email.",
+      "regards": "Best regards,",
+      "team": "Support Team"
+    },
+    "common": {
+      "footer": "This is an automated email, please do not reply.",
+      "copyright": "© {{year}} WhatsApp Bot. All rights reserved."
+    }
+  }
+}

@@ -125,12 +125,44 @@ export const templates = {
   },
   tenantInvitation: {
     en: {
-      subject: "",
-      html: "",
+      subject: "You've been invited to join {{tenantName}}",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Tenant Invitation</h2>
+          <p>Hello {{name}},</p>
+          <p>{{inviterName}} has invited you to join <strong>{{tenantName}}</strong> as a <strong>{{role}}</strong>.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="{{url}}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              Accept Invitation
+            </a>
+          </div>
+          <p>Or copy and paste this link in your browser:</p>
+          <p style="word-break: break-all; color: #666;">{{url}}</p>
+          <p>This invitation will expire in {{expirationHours}} hours.</p>
+          <p>If you don't want to accept this invitation, you can safely ignore this email.</p>
+          <p>Best regards,<br>Support Team</p>
+        </div>
+      `,
     },
     ar: {
-      subject: "",
-      html: "",
+      subject: "تمت دعوتك للانضمام إلى {{tenantName}}",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; direction: rtl;">
+          <h2>دعوة للانضمام</h2>
+          <p>مرحبا {{name}}،</p>
+          <p>قام {{inviterName}} بدعوتك للانضمام إلى <strong>{{tenantName}}</strong> بصفة <strong>{{role}}</strong>.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="{{url}}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              قبول الدعوة
+            </a>
+          </div>
+          <p>أو انسخ والصق هذا الرابط في متصفحك:</p>
+          <p style="word-break: break-all; color: #666;">{{url}}</p>
+          <p>ستنتهي صلاحية هذه الدعوة خلال {{expirationHours}} ساعة.</p>
+          <p>إذا كنت لا ترغب في قبول هذه الدعوة، يمكنك تجاهل هذا البريد الإلكتروني بأمان.</p>
+          <p>مع أطيب التحيات،<br>فريق الدعم</p>
+        </div>
+      `,
     },
   },
 };

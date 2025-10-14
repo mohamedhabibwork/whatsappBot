@@ -1,0 +1,18 @@
+{
+  "home": {
+    "getStarted": "ابدأ بتحرير apps/docs/app/page.tsx",
+    "saveChanges": "احفظ وشاهد تغييراتك فورًا.",
+    "deployNow": "انشر الآن",
+    "readDocs": "اقرأ وثائقنا",
+    "openAlert": "افتح التنبيه",
+    "examples": "أمثلة",
+    "goToTurborepo": "انتقل إلى turborepo.com ←"
+  },
+  "common": {
+    "welcome": "مرحبا",
+    "loading": "جاري التحميل...",
+    "error": "خطأ",
+    "success": "نجاح",
+    "documentation": "التوثيق"
+  }
+}

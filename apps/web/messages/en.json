@@ -1,0 +1,17 @@
+{
+  "home": {
+    "getStarted": "Get started by editing apps/web/app/page.tsx",
+    "saveChanges": "Save and see your changes instantly.",
+    "deployNow": "Deploy now",
+    "readDocs": "Read our docs",
+    "openAlert": "Open alert",
+    "examples": "Examples",
+    "goToTurborepo": "Go to turborepo.com →"
+  },
+  "common": {
+    "welcome": "Welcome",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  }
+}

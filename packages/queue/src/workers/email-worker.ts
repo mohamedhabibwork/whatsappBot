@@ -40,6 +40,18 @@ export async function startEmailWorker() {
           );
           break;
 
+        case "tenantInvitation":
+          await mailService.sendTenantInvitationEmail(
+            job.to,
+            job.data.tenantName!,
+            job.data.inviterName!,
+            job.data.url!,
+            job.data.role!,
+            job.language,
+            job.data.expirationHours || 168, // 7 days default
+          );
+          break;
+
         default:
           console.error(`Unknown email template: ${job.template}`);
       }

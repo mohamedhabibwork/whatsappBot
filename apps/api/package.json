@@ -5,6 +5,8 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
+    "i18next": "^24.2.0",
+    "i18next-fs-backend": "^2.3.2",
     "hono": "^4.9.12",
     "@hono/trpc-server": "^0.3.2",
     "@repo/database": "workspace:*",
