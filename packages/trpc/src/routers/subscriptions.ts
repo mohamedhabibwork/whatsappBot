@@ -17,6 +17,7 @@ import {
   checkUsageLimit,
   initializeUsage,
 } from "../utils/subscription-usage";
+import { emitSubscriptionEvent } from "../utils/websocket-events";
 
 // Helper to check if user has access to tenant
 async function checkTenantAccess(

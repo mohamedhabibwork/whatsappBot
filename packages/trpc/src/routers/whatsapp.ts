@@ -1,10 +1,24 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "../trpc";
-import { whatsappInstances, userTenantRoles } from "@repo/database";
+import { 
+  whatsappInstances, 
+  userTenantRoles,
+  contacts,
+  groups,
+  groupContacts,
+  messageTemplates
+} from "@repo/database";
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import { WhatsAppClient } from "@repo/whatsapp-client-sdk";
 import { trackUsage } from "../utils/subscription-usage";
+import { whatsappMessageQueue } from "@repo/queue";
+import { 
+  replaceTemplateVariables,
+  buildContactVariables,
+  mergeVariables
+} from "../utils/template-variables";
+import { emitWhatsAppEvent } from "../utils/websocket-events";
 
 async function checkTenantAccess(
   db: any,
@@ -259,6 +273,13 @@ export const whatsappRouter = router({
         }
       }
 
+      emitWhatsAppEvent(
+        "whatsapp_instance_created",
+        instance.id,
+        instance.tenantId,
+        { name: instance.name, sessionName: instance.sessionName }
+      );
+
       return { instance };
     }),
 
@@ -315,6 +336,13 @@ export const whatsappRouter = router({
         });
       }
 
+      emitWhatsAppEvent(
+        "whatsapp_instance_updated",
+        updated.id,
+        updated.tenantId,
+        { changes: updateData }
+      );
+
       return { instance: updated };
     }),
 
@@ -348,6 +376,13 @@ export const whatsappRouter = router({
         .update(whatsappInstances)
         .set({ deletedAt: new Date() })
         .where(eq(whatsappInstances.id, input.id));
+
+      emitWhatsAppEvent(
+        "whatsapp_instance_deleted",
+        existing.id,
+        existing.tenantId,
+        { name: existing.name }
+      );
 
       return { success: true };
     }),
@@ -456,6 +491,13 @@ export const whatsappRouter = router({
         })
         .where(eq(whatsappInstances.id, input.id))
         .returning();
+
+      emitWhatsAppEvent(
+        "whatsapp_instance_disconnected",
+        existing.id,
+        existing.tenantId,
+        { sessionName: existing.sessionName }
+      );
 
       return { instance: updated };
     }),
@@ -660,6 +702,13 @@ export const whatsappRouter = router({
           isGroup: input.isGroup,
         });
 
+        emitWhatsAppEvent(
+          "whatsapp_message_sent",
+          instance.id,
+          instance.tenantId,
+          { messageId: result.id, phone: input.phone }
+        );
+
         return {
           success: true,
           messageId: result.id,
@@ -719,5 +768,433 @@ export const whatsappRouter = router({
           connected: false,
         };
       }
+    }),
+
+  // Send bulk messages to multiple contacts
+  sendBulkToContacts: protectedProcedure
+    .input(
+      z.object({
+        instanceId: z.string().uuid(),
+        contactIds: z.array(z.string().uuid()).min(1),
+        message: z.string().min(1).optional(),
+        templateId: z.string().uuid().optional(),
+        customVariables: z.record(z.string()).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [instance] = await ctx.db
+        .select()
+        .from(whatsappInstances)
+        .where(
+          and(
+            eq(whatsappInstances.id, input.instanceId),
+            isNull(whatsappInstances.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!instance) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "WhatsApp instance not found",
+        });
+      }
+
+      await checkTenantAccess(ctx.db, ctx.userId, instance.tenantId);
+
+      if (!instance.token) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "WhatsApp instance is not authenticated",
+        });
+      }
+
+      // Get template if provided
+      let template: any = null;
+      if (input.templateId) {
+        [template] = await ctx.db
+          .select()
+          .from(messageTemplates)
+          .where(
+            and(
+              eq(messageTemplates.id, input.templateId),
+              eq(messageTemplates.tenantId, instance.tenantId),
+              isNull(messageTemplates.deletedAt),
+            ),
+          )
+          .limit(1);
+
+        if (!template) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Message template not found",
+          });
+        }
+      }
+
+      // Get contacts
+      const contactsList = await ctx.db
+        .select()
+        .from(contacts)
+        .where(
+          and(
+            inArray(contacts.id, input.contactIds),
+            eq(contacts.tenantId, instance.tenantId),
+            isNull(contacts.deletedAt),
+          ),
+        );
+
+      if (contactsList.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No contacts found",
+        });
+      }
+
+      // Track usage
+      await trackUsage({
+        db: ctx.db,
+        tenantId: instance.tenantId,
+        featureKey: "messages_sent",
+        incrementBy: contactsList.length,
+        metadata: {
+          instanceId: instance.id,
+          bulkSend: true,
+          contactCount: contactsList.length,
+        },
+      });
+
+      // Queue messages
+      const queuedCount = await Promise.all(
+        contactsList.map(async (contact) => {
+          try {
+            const baseVars = buildContactVariables(contact);
+            const allVars = mergeVariables(baseVars, input.customVariables || {});
+
+            const message = template
+              ? replaceTemplateVariables(template.content, allVars)
+              : input.message!;
+
+            await whatsappMessageQueue.publish({
+              instanceId: instance.id,
+              tenantId: instance.tenantId,
+              phone: contact.phoneNumber,
+              message,
+              sessionName: instance.sessionName,
+              token: instance.token!,
+              contactId: contact.id,
+              metadata: {
+                templateId: input.templateId,
+                variables: allVars,
+              },
+            });
+
+            return true;
+          } catch (error) {
+            console.error(`Failed to queue message for ${contact.phoneNumber}:`, error);
+            return false;
+          }
+        }),
+      );
+
+      const successCount = queuedCount.filter(Boolean).length;
+
+      emitWhatsAppEvent(
+        "whatsapp_bulk_sent",
+        instance.id,
+        instance.tenantId,
+        { queued: successCount, total: contactsList.length, type: "contacts" }
+      );
+
+      return {
+        success: true,
+        queued: successCount,
+        total: contactsList.length,
+      };
+    }),
+
+  // Send bulk messages to a group
+  sendBulkToGroup: protectedProcedure
+    .input(
+      z.object({
+        instanceId: z.string().uuid(),
+        groupId: z.string().uuid(),
+        message: z.string().min(1).optional(),
+        templateId: z.string().uuid().optional(),
+        customVariables: z.record(z.string()).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [instance] = await ctx.db
+        .select()
+        .from(whatsappInstances)
+        .where(
+          and(
+            eq(whatsappInstances.id, input.instanceId),
+            isNull(whatsappInstances.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!instance) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "WhatsApp instance not found",
+        });
+      }
+
+      await checkTenantAccess(ctx.db, ctx.userId, instance.tenantId);
+
+      if (!instance.token) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "WhatsApp instance is not authenticated",
+        });
+      }
+
+      // Get group
+      const [group] = await ctx.db
+        .select()
+        .from(groups)
+        .where(
+          and(
+            eq(groups.id, input.groupId),
+            eq(groups.tenantId, instance.tenantId),
+            isNull(groups.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!group) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Group not found",
+        });
+      }
+
+      // Get template if provided
+      let template: any = null;
+      if (input.templateId) {
+        [template] = await ctx.db
+          .select()
+          .from(messageTemplates)
+          .where(
+            and(
+              eq(messageTemplates.id, input.templateId),
+              eq(messageTemplates.tenantId, instance.tenantId),
+              isNull(messageTemplates.deletedAt),
+            ),
+          )
+          .limit(1);
+
+        if (!template) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Message template not found",
+          });
+        }
+      }
+
+      // Get group contacts
+      const groupContactsList = await ctx.db
+        .select({
+          contact: contacts,
+        })
+        .from(groupContacts)
+        .leftJoin(contacts, eq(groupContacts.contactId, contacts.id))
+        .where(eq(groupContacts.groupId, input.groupId));
+
+      const contactsList = groupContactsList
+        .map((gc) => gc.contact)
+        .filter(Boolean);
+
+      if (contactsList.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No contacts found in group",
+        });
+      }
+
+      // Track usage
+      await trackUsage({
+        db: ctx.db,
+        tenantId: instance.tenantId,
+        featureKey: "messages_sent",
+        incrementBy: contactsList.length,
+        metadata: {
+          instanceId: instance.id,
+          groupId: input.groupId,
+          bulkSend: true,
+          contactCount: contactsList.length,
+        },
+      });
+
+      // Queue messages
+      const queuedCount = await Promise.all(
+        contactsList.map(async (contact: any) => {
+          try {
+            const baseVars = buildContactVariables(contact);
+            const allVars = mergeVariables(baseVars, input.customVariables || {});
+
+            const message = template
+              ? replaceTemplateVariables(template.content, allVars)
+              : input.message!;
+
+            await whatsappMessageQueue.publish({
+              instanceId: instance.id,
+              tenantId: instance.tenantId,
+              phone: contact.phoneNumber,
+              message,
+              sessionName: instance.sessionName,
+              token: instance.token!,
+              contactId: contact.id,
+              metadata: {
+                groupId: input.groupId,
+                templateId: input.templateId,
+                variables: allVars,
+              },
+            });
+
+            return true;
+          } catch (error) {
+            console.error(`Failed to queue message for ${contact.phoneNumber}:`, error);
+            return false;
+          }
+        }),
+      );
+
+      const successCount = queuedCount.filter(Boolean).length;
+
+      emitWhatsAppEvent(
+        "whatsapp_bulk_sent",
+        instance.id,
+        instance.tenantId,
+        { queued: successCount, total: contactsList.length, type: "group", groupName: group.name }
+      );
+
+      return {
+        success: true,
+        queued: successCount,
+        total: contactsList.length,
+        groupName: group.name,
+      };
+    }),
+
+  // Send message to single contact using template
+  sendWithTemplate: protectedProcedure
+    .input(
+      z.object({
+        instanceId: z.string().uuid(),
+        contactId: z.string().uuid(),
+        templateId: z.string().uuid(),
+        customVariables: z.record(z.string()).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [instance] = await ctx.db
+        .select()
+        .from(whatsappInstances)
+        .where(
+          and(
+            eq(whatsappInstances.id, input.instanceId),
+            isNull(whatsappInstances.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!instance) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "WhatsApp instance not found",
+        });
+      }
+
+      await checkTenantAccess(ctx.db, ctx.userId, instance.tenantId);
+
+      if (!instance.token) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "WhatsApp instance is not authenticated",
+        });
+      }
+
+      // Get template
+      const [template] = await ctx.db
+        .select()
+        .from(messageTemplates)
+        .where(
+          and(
+            eq(messageTemplates.id, input.templateId),
+            eq(messageTemplates.tenantId, instance.tenantId),
+            isNull(messageTemplates.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!template) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Message template not found",
+        });
+      }
+
+      // Get contact
+      const [contact] = await ctx.db
+        .select()
+        .from(contacts)
+        .where(
+          and(
+            eq(contacts.id, input.contactId),
+            eq(contacts.tenantId, instance.tenantId),
+            isNull(contacts.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!contact) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Contact not found",
+        });
+      }
+
+      // Build variables and replace in template
+      const baseVars = buildContactVariables(contact);
+      const allVars = mergeVariables(baseVars, input.customVariables || {});
+      const message = replaceTemplateVariables(template.content, allVars);
+
+      // Track usage
+      await trackUsage({
+        db: ctx.db,
+        tenantId: instance.tenantId,
+        featureKey: "messages_sent",
+        incrementBy: 1,
+        metadata: {
+          instanceId: instance.id,
+          contactId: contact.id,
+          templateId: template.id,
+        },
+      });
+
+      // Send via SDK
+      const client = getWhatsAppClient(instance.sessionName, instance.token);
+      const result = await client.messages.sendMessage({
+        phone: contact.phoneNumber,
+        message,
+        isGroup: false,
+      });
+
+      emitWhatsAppEvent(
+        "whatsapp_message_sent",
+        instance.id,
+        instance.tenantId,
+        { messageId: result.id, phone: contact.phoneNumber }
+      );
+
+      return {
+        success: true,
+        messageId: result.id,
+        processedMessage: message,
+      };
     }),
 });

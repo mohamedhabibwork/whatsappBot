@@ -9,11 +9,19 @@ import {
   groupContacts,
   whatsappInstances,
   userTenantRoles,
+  messageTemplates,
   type NewCampaign,
   type NewCampaignRecipient,
 } from "@repo/database";
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import { emitCampaignEvent } from "../utils/websocket-events";
+import { whatsappMessageQueue } from "@repo/queue";
+import { 
+  replaceTemplateVariables,
+  buildContactVariables,
+  mergeVariables
+} from "../utils/template-variables";
+import { trackUsage } from "../utils/subscription-usage";
 
 async function checkTenantAccess(
   db: any,
@@ -381,6 +389,106 @@ export const campaignsRouter = router({
         });
       }
 
+      // Get WhatsApp instance
+      const [instance] = await ctx.db
+        .select()
+        .from(whatsappInstances)
+        .where(
+          and(
+            eq(whatsappInstances.id, existing.whatsappInstanceId),
+            isNull(whatsappInstances.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (!instance || !instance.token) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "WhatsApp instance not available or not authenticated",
+        });
+      }
+
+      // Get template if used
+      let template: any = null;
+      if (existing.messageTemplateId) {
+        [template] = await ctx.db
+          .select()
+          .from(messageTemplates)
+          .where(
+            and(
+              eq(messageTemplates.id, existing.messageTemplateId),
+              isNull(messageTemplates.deletedAt),
+            ),
+          )
+          .limit(1);
+      }
+
+      // Get all pending recipients
+      const recipients = await ctx.db
+        .select({
+          recipient: campaignRecipients,
+          contact: contacts,
+        })
+        .from(campaignRecipients)
+        .leftJoin(contacts, eq(campaignRecipients.contactId, contacts.id))
+        .where(
+          and(
+            eq(campaignRecipients.campaignId, input.id),
+            eq(campaignRecipients.status, "pending"),
+          ),
+        );
+
+      if (recipients.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No pending recipients in campaign",
+        });
+      }
+
+      // Track usage
+      await trackUsage({
+        db: ctx.db,
+        tenantId: existing.tenantId,
+        featureKey: "messages_sent",
+        incrementBy: recipients.length,
+        metadata: {
+          campaignId: input.id,
+          recipientCount: recipients.length,
+        },
+      });
+
+      // Queue all messages
+      let queuedCount = 0;
+      for (const { recipient, contact } of recipients) {
+        if (!contact) continue;
+
+        try {
+          const baseVars = buildContactVariables(contact);
+          const message = template
+            ? replaceTemplateVariables(template.content, baseVars)
+            : existing.message;
+
+          await whatsappMessageQueue.publish({
+            instanceId: instance.id,
+            tenantId: existing.tenantId,
+            phone: contact.phoneNumber,
+            message,
+            sessionName: instance.sessionName,
+            token: instance.token,
+            campaignId: input.id,
+            recipientId: recipient.id,
+            contactId: contact.id,
+            metadata: {
+              templateId: existing.messageTemplateId,
+            },
+          });
+
+          queuedCount++;
+        } catch (error) {
+          console.error(`Failed to queue message for recipient ${recipient.id}:`, error);
+        }
+      }
+
       const [updated] = await ctx.db
         .update(campaigns)
         .set({
@@ -401,9 +509,14 @@ export const campaignsRouter = router({
       emitCampaignEvent("campaign_status_changed", updated.id, updated.tenantId, {
         status: updated.status,
         previousStatus: existing.status,
+        queuedMessages: queuedCount,
       });
 
-      return { campaign: updated };
+      return { 
+        campaign: updated,
+        queuedMessages: queuedCount,
+        totalRecipients: recipients.length,
+      };
     }),
 
   cancel: protectedProcedure
