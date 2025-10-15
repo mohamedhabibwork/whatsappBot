@@ -9,6 +9,14 @@ import {
   groupContacts,
   messageTemplates,
   webhooks,
+  plans,
+  planFeatures,
+  subscriptions,
+  subscriptionFeatures,
+  subscriptionUsages,
+  invoices,
+  invoiceItems,
+  payments,
 } from "../schema";
 import { eq, and } from "drizzle-orm";
 import { hashPassword } from "@repo/auth-utils";
@@ -26,7 +34,7 @@ async function checkExists<T>(
   condition: any
 ): Promise<T | null> {
   const [existing] = await db.select().from(table).where(condition).limit(1);
-  return existing || null;
+  return (existing as T) || null;
 }
 
 /**
@@ -434,6 +442,551 @@ export async function seedWebhooks(tenantsData: any[], options: SeedOptions = {}
 }
 
 /**
+ * Seed plans
+ */
+export async function seedPlans(options: SeedOptions = {}) {
+  const { verbose = true } = options;
+
+  const plansData = [
+    {
+      name: { en: "Free", ar: "مجاني" },
+      description: { en: "Perfect for getting started", ar: "مثالي للبدء" },
+      price: "0",
+      currency: "USD",
+      billingCycle: "monthly",
+      trialDays: 0,
+      isActive: true,
+      isPublic: true,
+      maxUsers: 1,
+      maxWhatsappInstances: 1,
+      maxMessagesPerMonth: 100,
+      metadata: { tier: "free" },
+    },
+    {
+      name: { en: "Pro", ar: "احترافي" },
+      description: { en: "For growing businesses", ar: "للشركات المتنامية" },
+      price: "49",
+      currency: "USD",
+      billingCycle: "monthly",
+      trialDays: 7,
+      isActive: true,
+      isPublic: true,
+      maxUsers: 5,
+      maxWhatsappInstances: 5,
+      maxMessagesPerMonth: 10000,
+      metadata: { tier: "pro", popular: true },
+    },
+    {
+      name: { en: "Enterprise", ar: "مؤسسات" },
+      description: { en: "For large organizations", ar: "للمؤسسات الكبيرة" },
+      price: "199",
+      currency: "USD",
+      billingCycle: "monthly",
+      trialDays: 14,
+      isActive: true,
+      isPublic: true,
+      maxUsers: 999999,
+      maxWhatsappInstances: 999999,
+      maxMessagesPerMonth: 999999,
+      metadata: { tier: "enterprise" },
+    },
+  ];
+
+  const createdPlans = [];
+
+  for (const planData of plansData) {
+    const existing = await checkExists(
+      plans,
+      eq(plans.name, planData.name as any)
+    );
+
+    if (existing) {
+      if (verbose) console.log(`✓ Plan ${(planData.name as any).en} already exists`);
+      createdPlans.push(existing);
+    } else {
+      const [newPlan] = await db.insert(plans).values(planData as any).returning();
+      if (verbose) console.log(`✓ Created plan: ${(planData.name as any).en}`);
+      createdPlans.push(newPlan);
+    }
+  }
+
+  return createdPlans;
+}
+
+/**
+ * Seed plan features
+ */
+export async function seedPlanFeatures(plansData: any[], options: SeedOptions = {}) {
+  const { verbose = true } = options;
+
+  const featuresData = [
+    // Free plan features
+    {
+      planId: plansData[0].id,
+      name: { en: "Basic Messaging", ar: "الرسائل الأساسية" },
+      description: { en: "Send up to 100 messages per month", ar: "أرسل ما يصل إلى 100 رسالة شهريًا" },
+      featureKey: "messages_sent",
+      featureValue: "100",
+      isEnabled: true,
+      displayOrder: 1,
+    },
+    {
+      planId: plansData[0].id,
+      name: { en: "Single WhatsApp Instance", ar: "حساب واتساب واحد" },
+      description: { en: "One WhatsApp account connection", ar: "اتصال حساب واتساب واحد" },
+      featureKey: "whatsapp_instances",
+      featureValue: "1",
+      isEnabled: true,
+      displayOrder: 2,
+    },
+    {
+      planId: plansData[0].id,
+      name: { en: "Community Support", ar: "دعم المجتمع" },
+      description: { en: "Access to community forums", ar: "الوصول إلى منتديات المجتمع" },
+      featureKey: "support_level",
+      featureValue: "community",
+      isEnabled: true,
+      displayOrder: 3,
+    },
+    // Pro plan features
+    {
+      planId: plansData[1].id,
+      name: { en: "Advanced Messaging", ar: "الرسائل المتقدمة" },
+      description: { en: "Send up to 10,000 messages per month", ar: "أرسل ما يصل إلى 10,000 رسالة شهريًا" },
+      featureKey: "messages_sent",
+      featureValue: "10000",
+      isEnabled: true,
+      displayOrder: 1,
+    },
+    {
+      planId: plansData[1].id,
+      name: { en: "Multiple Instances", ar: "حسابات متعددة" },
+      description: { en: "Connect up to 5 WhatsApp accounts", ar: "اتصل بما يصل إلى 5 حسابات واتساب" },
+      featureKey: "whatsapp_instances",
+      featureValue: "5",
+      isEnabled: true,
+      displayOrder: 2,
+    },
+    {
+      planId: plansData[1].id,
+      name: { en: "Advanced Analytics", ar: "تحليلات متقدمة" },
+      description: { en: "Detailed campaign and message analytics", ar: "تحليلات مفصلة للحملات والرسائل" },
+      featureKey: "analytics",
+      featureValue: "advanced",
+      isEnabled: true,
+      displayOrder: 3,
+    },
+    {
+      planId: plansData[1].id,
+      name: { en: "Priority Support", ar: "دعم ذو أولوية" },
+      description: { en: "Email support with priority response", ar: "دعم البريد الإلكتروني مع استجابة ذات أولوية" },
+      featureKey: "support_level",
+      featureValue: "priority",
+      isEnabled: true,
+      displayOrder: 4,
+    },
+    // Enterprise plan features
+    {
+      planId: plansData[2].id,
+      name: { en: "Unlimited Messaging", ar: "رسائل غير محدودة" },
+      description: { en: "Send unlimited messages", ar: "أرسل رسائل غير محدودة" },
+      featureKey: "messages_sent",
+      featureValue: "unlimited",
+      isEnabled: true,
+      displayOrder: 1,
+    },
+    {
+      planId: plansData[2].id,
+      name: { en: "Unlimited Instances", ar: "حسابات غير محدودة" },
+      description: { en: "Connect unlimited WhatsApp accounts", ar: "اتصل بحسابات واتساب غير محدودة" },
+      featureKey: "whatsapp_instances",
+      featureValue: "unlimited",
+      isEnabled: true,
+      displayOrder: 2,
+    },
+    {
+      planId: plansData[2].id,
+      name: { en: "Custom Integrations", ar: "تكاملات مخصصة" },
+      description: { en: "API access and custom integrations", ar: "الوصول إلى API والتكاملات المخصصة" },
+      featureKey: "api_access",
+      featureValue: "full",
+      isEnabled: true,
+      displayOrder: 3,
+    },
+    {
+      planId: plansData[2].id,
+      name: { en: "Dedicated Support", ar: "دعم مخصص" },
+      description: { en: "24/7 phone and email support", ar: "دعم هاتفي وبريد إلكتروني على مدار الساعة" },
+      featureKey: "support_level",
+      featureValue: "dedicated",
+      isEnabled: true,
+      displayOrder: 4,
+    },
+  ];
+
+  const createdFeatures = [];
+
+  for (const featureData of featuresData) {
+    const existing = await checkExists(
+      planFeatures,
+      and(
+        eq(planFeatures.planId, featureData.planId),
+        eq(planFeatures.featureKey, featureData.featureKey)
+      )
+    );
+
+    if (existing) {
+      if (verbose) console.log(`✓ Plan feature already exists`);
+      createdFeatures.push(existing);
+    } else {
+      const [newFeature] = await db.insert(planFeatures).values(featureData as any).returning();
+      if (verbose) console.log(`✓ Created plan feature: ${(featureData.name as any).en}`);
+      createdFeatures.push(newFeature);
+    }
+  }
+
+  return createdFeatures;
+}
+
+/**
+ * Seed subscriptions
+ */
+export async function seedSubscriptions(
+  tenantsData: any[],
+  plansData: any[],
+  options: SeedOptions = {}
+) {
+  const { verbose = true } = options;
+
+  const now = new Date();
+  const oneMonthFromNow = new Date(now);
+  oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+
+  const subscriptionsData = [
+    // Free plan subscription for Acme
+    {
+      tenantId: tenantsData[0].id,
+      planId: plansData[0].id,
+      status: "active",
+      currentPeriodStart: now,
+      currentPeriodEnd: oneMonthFromNow,
+      price: "0",
+      currency: "USD",
+      metadata: { source: "seed" },
+    },
+    // Pro plan subscription for Tech Startup
+    {
+      tenantId: tenantsData[1].id,
+      planId: plansData[1].id,
+      status: "active",
+      currentPeriodStart: now,
+      currentPeriodEnd: oneMonthFromNow,
+      trialEnd: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+      price: "49",
+      currency: "USD",
+      metadata: { source: "seed" },
+    },
+  ];
+
+  const createdSubscriptions = [];
+
+  for (const subscriptionData of subscriptionsData) {
+    const existing = await checkExists(
+      subscriptions,
+      and(
+        eq(subscriptions.tenantId, subscriptionData.tenantId),
+        eq(subscriptions.status, "active")
+      )
+    );
+
+    if (existing) {
+      if (verbose) console.log(`✓ Active subscription already exists for tenant`);
+      createdSubscriptions.push(existing);
+    } else {
+      const [newSubscription] = await db.insert(subscriptions).values(subscriptionData).returning();
+      if (verbose) console.log(`✓ Created subscription for tenant`);
+      createdSubscriptions.push(newSubscription);
+    }
+  }
+
+  return createdSubscriptions;
+}
+
+/**
+ * Seed subscription features
+ */
+export async function seedSubscriptionFeatures(
+  subscriptionsData: any[],
+  planFeaturesData: any[],
+  options: SeedOptions = {}
+) {
+  const { verbose = true } = options;
+
+  const subscriptionFeaturesData = [];
+
+  // Copy plan features to subscriptions
+  for (const subscription of subscriptionsData) {
+    const planFeats = planFeaturesData.filter(f => f.planId === subscription.planId);
+    
+    for (const planFeature of planFeats) {
+      subscriptionFeaturesData.push({
+        subscriptionId: subscription.id,
+        planFeatureId: planFeature.id,
+        featureKey: planFeature.featureKey,
+        featureValue: planFeature.featureValue,
+        isEnabled: planFeature.isEnabled,
+        metadata: {},
+      });
+    }
+  }
+
+  const createdSubFeatures = [];
+
+  for (const subFeatureData of subscriptionFeaturesData) {
+    const existing = await checkExists(
+      subscriptionFeatures,
+      and(
+        eq(subscriptionFeatures.subscriptionId, subFeatureData.subscriptionId),
+        eq(subscriptionFeatures.featureKey, subFeatureData.featureKey)
+      )
+    );
+
+    if (existing) {
+      if (verbose) console.log(`✓ Subscription feature already exists`);
+      createdSubFeatures.push(existing);
+    } else {
+      const [newSubFeature] = await db.insert(subscriptionFeatures).values(subFeatureData).returning();
+      if (verbose) console.log(`✓ Created subscription feature`);
+      createdSubFeatures.push(newSubFeature);
+    }
+  }
+
+  return createdSubFeatures;
+}
+
+/**
+ * Seed subscription usages
+ */
+export async function seedSubscriptionUsages(
+  subscriptionsData: any[],
+  tenantsData: any[],
+  options: SeedOptions = {}
+) {
+  const { verbose = true } = options;
+
+  const usagesData = [];
+
+  for (const subscription of subscriptionsData) {
+    const tenant = tenantsData.find(t => t.id === subscription.tenantId);
+    if (!tenant) continue;
+
+    // Create usage records for key features
+    const features = [
+      { key: "messages_sent", limit: subscription.planId === subscriptionsData[0].planId ? 100 : 10000, count: 25 },
+      { key: "api_calls", limit: null, count: 150 },
+      { key: "whatsapp_instances", limit: subscription.planId === subscriptionsData[0].planId ? 1 : 5, count: 1 },
+      { key: "contacts", limit: null, count: 5 },
+      { key: "campaigns", limit: null, count: 0 },
+    ];
+
+    for (const feature of features) {
+      usagesData.push({
+        subscriptionId: subscription.id,
+        tenantId: subscription.tenantId,
+        featureKey: feature.key,
+        usageCount: feature.count,
+        limit: feature.limit,
+        periodStart: subscription.currentPeriodStart,
+        periodEnd: subscription.currentPeriodEnd,
+        metadata: {},
+      });
+    }
+  }
+
+  const createdUsages = [];
+
+  for (const usageData of usagesData) {
+    const existing = await checkExists(
+      subscriptionUsages,
+      and(
+        eq(subscriptionUsages.subscriptionId, usageData.subscriptionId),
+        eq(subscriptionUsages.featureKey, usageData.featureKey)
+      )
+    );
+
+    if (existing) {
+      if (verbose) console.log(`✓ Subscription usage already exists`);
+      createdUsages.push(existing);
+    } else {
+      const [newUsage] = await db.insert(subscriptionUsages).values(usageData).returning();
+      if (verbose) console.log(`✓ Created subscription usage for ${usageData.featureKey}`);
+      createdUsages.push(newUsage);
+    }
+  }
+
+  return createdUsages;
+}
+
+/**
+ * Seed invoices
+ */
+export async function seedInvoices(
+  tenantsData: any[],
+  subscriptionsData: any[],
+  options: SeedOptions = {}
+) {
+  const { verbose = true } = options;
+
+  const now = new Date();
+  const dueDate = new Date(now);
+  dueDate.setDate(dueDate.getDate() + 7);
+
+  const invoicesData = [
+    // Invoice for Pro subscription
+    {
+      invoiceNumber: `INV-${Date.now()}-001`,
+      tenantId: tenantsData[1].id,
+      subscriptionId: subscriptionsData[1]?.id,
+      status: "paid",
+      subtotal: "49.00",
+      tax: "0.00",
+      discount: "0.00",
+      total: "49.00",
+      currency: "USD",
+      dueDate,
+      paidAt: now,
+      metadata: { source: "seed" },
+    },
+  ];
+
+  const createdInvoices = [];
+
+  for (const invoiceData of invoicesData) {
+    if (!invoiceData.subscriptionId) continue;
+
+    const existing = await checkExists(
+      invoices,
+      eq(invoices.invoiceNumber, invoiceData.invoiceNumber)
+    );
+
+    if (existing) {
+      if (verbose) console.log(`✓ Invoice ${invoiceData.invoiceNumber} already exists`);
+      createdInvoices.push(existing);
+    } else {
+      const [newInvoice] = await db.insert(invoices).values(invoiceData).returning();
+      if (verbose) console.log(`✓ Created invoice: ${invoiceData.invoiceNumber}`);
+      createdInvoices.push(newInvoice);
+    }
+  }
+
+  return createdInvoices;
+}
+
+/**
+ * Seed invoice items
+ */
+export async function seedInvoiceItems(
+  invoicesData: any[],
+  plansData: any[],
+  options: SeedOptions = {}
+) {
+  const { verbose = true } = options;
+
+  const invoiceItemsData = [];
+
+  for (const invoice of invoicesData) {
+    // Find the subscription and plan for this invoice
+    const [subscription] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.id, invoice.subscriptionId!))
+      .limit(1);
+
+    if (subscription) {
+      const plan = plansData.find(p => p.id === subscription.planId);
+      if (plan) {
+        invoiceItemsData.push({
+          invoiceId: invoice.id,
+          itemableType: "plan",
+          itemableId: plan.id,
+          description: plan.description,
+          quantity: 1,
+          unitPrice: plan.price,
+          amount: plan.price,
+          taxRate: "0.00",
+          taxAmount: "0.00",
+          discountAmount: "0.00",
+          metadata: {},
+        });
+      }
+    }
+  }
+
+  const createdInvoiceItems = [];
+
+  for (const itemData of invoiceItemsData) {
+    const [newItem] = await db.insert(invoiceItems).values(itemData).returning();
+    if (verbose) console.log(`✓ Created invoice item`);
+    createdInvoiceItems.push(newItem);
+  }
+
+  return createdInvoiceItems;
+}
+
+/**
+ * Seed payments
+ */
+export async function seedPayments(
+  tenantsData: any[],
+  invoicesData: any[],
+  options: SeedOptions = {}
+) {
+  const { verbose = true } = options;
+
+  const now = new Date();
+
+  const paymentsData = [];
+
+  for (const invoice of invoicesData) {
+    if (invoice.status === "paid") {
+      paymentsData.push({
+        paymentNumber: `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        tenantId: invoice.tenantId,
+        invoiceId: invoice.id,
+        status: "completed",
+        amount: invoice.total,
+        currency: invoice.currency,
+        paymentMethod: "free_plan",
+        paymentGateway: "none",
+        transactionId: `txn_seed_${Date.now()}`,
+        paymentDate: now,
+        metadata: { source: "seed" },
+      });
+    }
+  }
+
+  const createdPayments = [];
+
+  for (const paymentData of paymentsData) {
+    const existing = await checkExists(
+      payments,
+      eq(payments.paymentNumber, paymentData.paymentNumber)
+    );
+
+    if (existing) {
+      if (verbose) console.log(`✓ Payment ${paymentData.paymentNumber} already exists`);
+      createdPayments.push(existing);
+    } else {
+      const [newPayment] = await db.insert(payments).values(paymentData).returning();
+      if (verbose) console.log(`✓ Created payment: ${paymentData.paymentNumber}`);
+      createdPayments.push(newPayment);
+    }
+  }
+
+  return createdPayments;
+}
+
+/**
  * Main seed function
  */
 export async function seedDatabase(options: SeedOptions = {}) {
@@ -443,6 +996,7 @@ export async function seedDatabase(options: SeedOptions = {}) {
     if (verbose) console.log("🌱 Starting database seeding...\n");
 
     // Seed in order of dependencies
+    if (verbose) console.log("📝 Seeding core data...");
     const usersData = await seedUsers(options);
     const tenantsData = await seedTenants(options);
     await seedUserTenantRoles(usersData, tenantsData, options);
@@ -453,14 +1007,39 @@ export async function seedDatabase(options: SeedOptions = {}) {
     await seedMessageTemplates(tenantsData, options);
     await seedWebhooks(tenantsData, options);
 
+    if (verbose) console.log("\n💳 Seeding subscription data...");
+    const plansData = await seedPlans(options);
+    const planFeaturesData = await seedPlanFeatures(plansData, options);
+    const subscriptionsData = await seedSubscriptions(tenantsData, plansData, options);
+    await seedSubscriptionFeatures(subscriptionsData, planFeaturesData, options);
+    await seedSubscriptionUsages(subscriptionsData, tenantsData, options);
+
+    if (verbose) console.log("\n💰 Seeding billing data...");
+    const invoicesData = await seedInvoices(tenantsData, subscriptionsData, options);
+    await seedInvoiceItems(invoicesData, plansData, options);
+    await seedPayments(tenantsData, invoicesData, options);
+
     if (verbose) {
-      console.log("\n✅ Database seeding completed successfully!");
-      console.log(`\nCreated/Found:`);
+      console.log("\n=== Database seeding completed successfully! ===");
+      console.log("\nSummary:");
       console.log(`  - ${usersData.length} users`);
       console.log(`  - ${tenantsData.length} tenants`);
       console.log(`  - ${instancesData.length} WhatsApp instances`);
       console.log(`  - ${contactsData.length} contacts`);
       console.log(`  - ${groupsData.length} groups`);
+      console.log(`  - ${plansData.length} plans`);
+      console.log(`  - ${planFeaturesData.length} plan features`);
+      console.log(`  - ${subscriptionsData.length} subscriptions`);
+      console.log(`  - ${invoicesData.length} invoices`);
+      console.log("  - Database ready for use!\n");
+      
+      console.log("Test Credentials:");
+      console.log("  Email: admin@example.com");
+      console.log("  Password: Admin123!\n");
+      
+      console.log("Landing Page:");
+      console.log("  Visit http://localhost:3000/en to see pricing");
+      console.log(`  ${plansData.length} plans available for signup\n`);
     }
 
     return {
@@ -469,6 +1048,10 @@ export async function seedDatabase(options: SeedOptions = {}) {
       instances: instancesData,
       contacts: contactsData,
       groups: groupsData,
+      plans: plansData,
+      planFeatures: planFeaturesData,
+      subscriptions: subscriptionsData,
+      invoices: invoicesData,
     };
   } catch (error) {
     console.error("❌ Error seeding database:", error);

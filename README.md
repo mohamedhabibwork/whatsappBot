@@ -114,6 +114,37 @@ bun run db:push
 bun run db:studio
 ```
 
+## API Documentation
+
+### Swagger UI (Interactive API Docs)
+
+Access the interactive API documentation at:
+```
+http://localhost:3001/api/docs
+```
+
+The Swagger UI provides:
+- **Interactive testing** - Try endpoints directly from the browser
+- **Complete API reference** - All endpoints documented
+- **Request/Response schemas** - See data structures
+- **Authentication support** - Test protected endpoints
+
+📚 **Quick Start Guide**: See [OPENAPI_QUICK_START.md](./OPENAPI_QUICK_START.md)  
+📖 **Detailed Setup**: See [OPENAPI_SWAGGER_SETUP.md](./OPENAPI_SWAGGER_SETUP.md)
+
+### OpenAPI Specification
+
+Download the OpenAPI JSON:
+```
+http://localhost:3001/api/docs/openapi.json
+```
+
+Or generate it locally:
+```bash
+cd packages/trpc
+bun run generate-openapi
+```
+
 ## API Endpoints
 
 ### Authentication

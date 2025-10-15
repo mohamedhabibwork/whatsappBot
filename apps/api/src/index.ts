@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { trpcServer } from "@hono/trpc-server";
+// import { createOpenApiHttpHandler } from "trpc-openapi"; // Temporarily disabled
 import {
   appRouter,
   createContext,
@@ -26,6 +27,7 @@ import {
 import { wsManager } from "./websocket/connection";
 import type { Language } from "@repo/websocket-types";
 import { getMessage } from "@repo/websocket-types";
+import { swaggerRouter } from "./routes/swagger";
 
 const app = new Hono();
 
@@ -104,6 +106,59 @@ app.get("/api/performance/stats", authMiddleware, (c) => {
   const stats = getPerformanceStats();
   return c.json(stats);
 });
+
+// Swagger/OpenAPI documentation
+app.route("/api/docs", swaggerRouter);
+
+// OpenAPI REST API endpoints (generated from tRPC procedures with OpenAPI metadata)
+// TODO: Re-enable when nested router support is fixed in trpc-openapi
+// const openApiHandler = createOpenApiHttpHandler({
+//   router: appRouter,
+//   createContext: async ({ req }) => {
+//     const authorization = req.headers.get("authorization");
+//     const token = authorization?.split(" ")[1];
+//     
+//     let userId: string | undefined;
+//     let tenantId: string | undefined;
+//     
+//     if (token) {
+//       try {
+//         // Create a mock Hono context to use auth middleware
+//         const mockContext = {
+//           req: {
+//             header: (name: string) => {
+//               if (name === "authorization") return authorization;
+//               return req.headers.get(name);
+//             },
+//           },
+//           set: (key: string, value: any) => {
+//             if (key === "auth") {
+//               userId = value.userId;
+//             }
+//           },
+//         } as any;
+//         
+//         await authMiddleware(mockContext, async () => {});
+//         
+//         // Get tenant ID if user is authenticated
+//         if (userId) {
+//           tenantId = await getTenantId(mockContext, userId);
+//         }
+//       } catch (error) {
+//         // Token invalid, continue as unauthenticated
+//       }
+//     }
+//     
+//     return createContext({ userId, tenantId });
+//   },
+// });
+
+// Mount OpenAPI REST endpoints at /api/rest
+// app.all("/api/rest/*", async (c) => {
+//   const request = c.req.raw;
+//   const response = await openApiHandler(request);
+//   return response;
+// });
 
 // tRPC routes with auth
 app.use("/api/trpc/*", async (c, next) => {
@@ -247,6 +302,9 @@ initializeServices().then(() => {
   console.log(`🚀 Server running on http://localhost:${port}`);
   console.log(`📡 WebSocket available at ws://localhost:${port}/ws`);
   console.log(`📄 tRPC API available at http://localhost:${port}/api/trpc`);
+  // console.log(`🔌 REST API available at http://localhost:${port}/api/rest`); // Temporarily disabled
+  console.log(`📚 API Documentation (Swagger UI) at http://localhost:${port}/api/docs`);
+  console.log(`📋 OpenAPI JSON at http://localhost:${port}/api/docs/openapi.json`);
 });
 
 export default app;

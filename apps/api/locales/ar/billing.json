@@ -69,9 +69,13 @@
   },
   "billing": {
     "cycle": {
+      "daily": "يومي",
+      "weekly": "أسبوعي",
       "monthly": "شهري",
       "quarterly": "ربع سنوي",
-      "yearly": "سنوي"
+      "yearly": "سنوي",
+      "annually": "سنوي",
+      "semiannually": "نصف سنوي"
     },
     "currency": {
       "USD": "دولار أمريكي",

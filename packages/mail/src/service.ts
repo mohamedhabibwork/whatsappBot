@@ -3,7 +3,7 @@ import {
   compileTemplate,
   type TemplateType,
   type Language,
-  type MailTemplateData,
+  type TemplateData,
 } from "./templates";
 
 export class MailService {
@@ -11,7 +11,7 @@ export class MailService {
     to: string | string[],
     templateType: TemplateType,
     language: Language,
-    data: MailTemplateData,
+    data: TemplateData,
   ): Promise<void> {
     const { subject, html } = compileTemplate(templateType, language, data);
 

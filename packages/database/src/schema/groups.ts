@@ -7,6 +7,8 @@ import {
   pgPolicy,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
 import { tenants } from "./tenants";
 
 export const groups = pgTable(
@@ -36,3 +38,33 @@ export const groups = pgTable(
 
 export type Group = typeof groups.$inferSelect;
 export type NewGroup = typeof groups.$inferInsert;
+
+// Zod schemas for OpenAPI
+export const insertGroupSchema = createInsertSchema(groups, {
+  tenantId: z.string().uuid().describe("Tenant ID"),
+  name: z.string().min(1).describe("Group name"),
+  description: z.string().optional().describe("Group description"),
+  isActive: z.boolean().optional().default(true).describe("Whether the group is active"),
+  timezone: z.string().optional().describe("Group timezone"),
+  language: z.string().optional().describe("Group language preference"),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
+});
+
+export const selectGroupSchema = createSelectSchema(groups, {
+  id: z.string().uuid().describe("Group ID"),
+  tenantId: z.string().uuid().describe("Tenant ID"),
+  name: z.string().describe("Group name"),
+  description: z.string().nullable().describe("Group description"),
+  isActive: z.boolean().describe("Whether the group is active"),
+  timezone: z.string().nullable().describe("Group timezone"),
+  language: z.string().nullable().describe("Group language preference"),
+  createdAt: z.date().describe("Creation timestamp"),
+  updatedAt: z.date().describe("Last update timestamp"),
+  deletedAt: z.date().nullable().describe("Deletion timestamp"),
+});
+
+export const updateGroupSchema = insertGroupSchema.partial();

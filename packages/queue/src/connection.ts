@@ -1,8 +1,8 @@
-import amqp, { Connection, Channel } from "amqplib";
+import amqp, { type Channel } from "amqplib";
 
 export class RabbitMQConnection {
   private static instance: RabbitMQConnection;
-  private connection: Connection | null = null;
+  private connection: any = null;
   private channel: Channel | null = null;
   private url: string;
   private isConnecting = false;
@@ -36,7 +36,7 @@ export class RabbitMQConnection {
       this.connection = await amqp.connect(this.url);
       this.channel = await this.connection.createChannel();
 
-      this.connection.on("error", (err) => {
+      this.connection.on("error", (err: Error) => {
         console.error("RabbitMQ connection error:", err);
         this.connection = null;
         this.channel = null;
@@ -83,6 +83,45 @@ export class RabbitMQConnection {
   public isConnected(): boolean {
     return this.connection !== null && this.channel !== null;
   }
+
+  public async publish(queueName: string, data: any): Promise<void> {
+    const channel = await this.getChannel();
+    await channel.assertQueue(queueName, { durable: true });
+    const message = JSON.stringify(data);
+    channel.sendToQueue(queueName, Buffer.from(message), {
+      persistent: true,
+    });
+  }
+
+  public async consume(
+    queueName: string,
+    callback: (message: any) => Promise<void>
+  ): Promise<void> {
+    const channel = await this.getChannel();
+    await channel.assertQueue(queueName, { durable: true });
+
+    await channel.consume(
+      queueName,
+      async (msg) => {
+        if (!msg) return;
+
+        try {
+          const content = JSON.parse(msg.content.toString());
+          await callback(content);
+          channel.ack(msg);
+        } catch (error) {
+          console.error(`Failed to process message from ${queueName}:`, error);
+          channel.nack(msg, false, true); // Requeue on error
+        }
+      },
+      { noAck: false }
+    );
+  }
 }
 
 export const rabbitMQ = RabbitMQConnection.getInstance();
+
+export async function initializeQueues(): Promise<void> {
+  await rabbitMQ.connect();
+  console.log("Queue system initialized");
+}

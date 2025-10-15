@@ -6,6 +6,8 @@ import {
   jsonb,
   numeric,
 } from "drizzle-orm/pg-core";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
 import { tenants } from "./tenants";
 import { invoices } from "./invoices";
 
@@ -36,3 +38,49 @@ export const payments = pgTable("payments", {
 
 export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;
+
+// Zod schemas for OpenAPI
+export const insertPaymentSchema = createInsertSchema(payments, {
+  paymentNumber: z.string().describe("Unique payment number"),
+  tenantId: z.string().uuid().describe("Tenant ID"),
+  invoiceId: z.string().uuid().optional().describe("Associated invoice ID"),
+  status: z.enum(["pending", "completed", "failed", "refunded", "cancelled"]).describe("Payment status"),
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/).describe("Payment amount"),
+  currency: z.string().describe("Currency code (e.g., USD, EUR)"),
+  paymentMethod: z.string().describe("Payment method (credit_card, bank_transfer, etc.)"),
+  paymentGateway: z.string().optional().describe("Payment gateway (stripe, paypal, etc.)"),
+  transactionId: z.string().optional().describe("External transaction ID"),
+  failureReason: z.string().optional().describe("Reason for payment failure"),
+  metadata: z.record(z.any()).optional().describe("Additional metadata"),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
+  paymentDate: true,
+  refundedAmount: true,
+  refundedAt: true,
+});
+
+export const selectPaymentSchema = createSelectSchema(payments, {
+  id: z.string().uuid().describe("Payment ID"),
+  paymentNumber: z.string().describe("Unique payment number"),
+  tenantId: z.string().uuid().describe("Tenant ID"),
+  invoiceId: z.string().uuid().nullable().describe("Associated invoice ID"),
+  status: z.enum(["pending", "completed", "failed", "refunded", "cancelled"]).describe("Payment status"),
+  amount: z.string().describe("Payment amount"),
+  currency: z.string().describe("Currency code"),
+  paymentMethod: z.string().describe("Payment method"),
+  paymentGateway: z.string().nullable().describe("Payment gateway"),
+  transactionId: z.string().nullable().describe("External transaction ID"),
+  paymentDate: z.date().nullable().describe("Date when payment was completed"),
+  failureReason: z.string().nullable().describe("Reason for payment failure"),
+  refundedAmount: z.string().nullable().describe("Amount refunded"),
+  refundedAt: z.date().nullable().describe("Date when payment was refunded"),
+  metadata: z.record(z.any()).describe("Additional metadata"),
+  createdAt: z.date().describe("Creation timestamp"),
+  updatedAt: z.date().describe("Last update timestamp"),
+  deletedAt: z.date().nullable().describe("Deletion timestamp"),
+});
+
+export const updatePaymentSchema = insertPaymentSchema.partial();

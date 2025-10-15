@@ -8,9 +8,88 @@ import {
   userTenantRoles,
   type NewGroup,
   type NewGroupContact,
+  selectGroupSchema,
+  selectContactSchema,
 } from "@repo/database";
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import { emitGroupEvent } from "../utils/websocket-events";
+
+// Input Schemas
+export const listGroupsInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  limit: z.number().min(1).max(100).default(50),
+  offset: z.number().min(0).default(0),
+});
+
+export const getGroupByIdInputSchema = z.object({ id: z.string().uuid() });
+
+export const createGroupInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+  timezone: z.string().optional(),
+  language: z.string().optional(),
+});
+
+export const updateGroupInputSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().optional(),
+  isActive: z.boolean().optional(),
+  timezone: z.string().optional(),
+  language: z.string().optional(),
+});
+
+export const deleteGroupInputSchema = z.object({ id: z.string().uuid() });
+
+export const addContactsInputSchema = z.object({
+  groupId: z.string().uuid(),
+  contactIds: z.array(z.string().uuid()).min(1),
+});
+
+export const removeContactsInputSchema = z.object({
+  groupId: z.string().uuid(),
+  contactIds: z.array(z.string().uuid()).min(1),
+});
+
+export const bulkDeleteGroupsInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  ids: z.array(z.string().uuid()).min(1),
+});
+
+export const bulkUpdateGroupsStatusInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  ids: z.array(z.string().uuid()).min(1),
+  isActive: z.boolean(),
+});
+
+// Output Schemas
+export const listGroupsOutputSchema = z.object({
+  groups: z.array(selectGroupSchema),
+});
+
+export const getGroupByIdOutputSchema = z.object({
+  group: selectGroupSchema,
+  contacts: z.array(selectContactSchema),
+});
+
+export const createGroupOutputSchema = z.object({
+  group: selectGroupSchema,
+});
+
+export const updateGroupOutputSchema = z.object({
+  group: selectGroupSchema,
+});
+
+export const deleteGroupOutputSchema = z.object({ success: z.boolean() });
+
+export const addContactsOutputSchema = z.object({ success: z.boolean() });
+
+export const removeContactsOutputSchema = z.object({ success: z.boolean() });
+
+export const bulkDeleteGroupsOutputSchema = z.object({ success: z.boolean() });
+
+export const bulkUpdateGroupsStatusOutputSchema = z.object({ success: z.boolean() });
 
 async function checkTenantAccess(
   db: any,
@@ -41,13 +120,18 @@ async function checkTenantAccess(
 
 export const groupsRouter = router({
   list: protectedProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        limit: z.number().min(1).max(100).default(50),
-        offset: z.number().min(0).default(0),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/groups/list",
+        tags: ["groups"],
+        summary: "List groups",
+        description: "Get paginated list of groups for a tenant",
+        protect: true,
+      },
+    })
+    .input(listGroupsInputSchema)
+    .output(listGroupsOutputSchema)
     .query(async ({ ctx, input }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId);
 
@@ -68,7 +152,18 @@ export const groupsRouter = router({
     }),
 
   getById: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/groups/{id}",
+        tags: ["groups"],
+        summary: "Get group by ID",
+        description: "Get a single group by ID with its contacts",
+        protect: true,
+      },
+    })
+    .input(getGroupByIdInputSchema)
+    .output(getGroupByIdOutputSchema)
     .query(async ({ ctx, input }) => {
       const [group] = await ctx.db
         .select()
@@ -105,15 +200,18 @@ export const groupsRouter = router({
     }),
 
   create: protectedProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        name: z.string().min(1).max(100),
-        description: z.string().optional(),
-        timezone: z.string().optional(),
-        language: z.string().optional(),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/groups",
+        tags: ["groups"],
+        summary: "Create group",
+        description: "Create a new group for a tenant",
+        protect: true,
+      },
+    })
+    .input(createGroupInputSchema)
+    .output(createGroupOutputSchema)
     .mutation(async ({ input, ctx }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
         "owner",
@@ -146,16 +244,18 @@ export const groupsRouter = router({
     }),
 
   update: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-        name: z.string().min(1).max(100).optional(),
-        description: z.string().optional(),
-        isActive: z.boolean().optional(),
-        timezone: z.string().optional(),
-        language: z.string().optional(),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/groups/{id}",
+        tags: ["groups"],
+        summary: "Update group",
+        description: "Update an existing group",
+        protect: true,
+      },
+    })
+    .input(updateGroupInputSchema)
+    .output(updateGroupOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
         .select()
@@ -202,7 +302,18 @@ export const groupsRouter = router({
     }),
 
   delete: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/groups/{id}",
+        tags: ["groups"],
+        summary: "Delete group",
+        description: "Soft delete a group",
+        protect: true,
+      },
+    })
+    .input(deleteGroupInputSchema)
+    .output(deleteGroupOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
         .select()
@@ -238,12 +349,18 @@ export const groupsRouter = router({
     }),
 
   addContacts: protectedProcedure
-    .input(
-      z.object({
-        groupId: z.string().uuid(),
-        contactIds: z.array(z.string().uuid()).min(1),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/groups/{groupId}/contacts",
+        tags: ["groups"],
+        summary: "Add contacts to group",
+        description: "Add multiple contacts to a group",
+        protect: true,
+      },
+    })
+    .input(addContactsInputSchema)
+    .output(addContactsOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const [group] = await ctx.db
         .select()
@@ -300,12 +417,18 @@ export const groupsRouter = router({
     }),
 
   removeContacts: protectedProcedure
-    .input(
-      z.object({
-        groupId: z.string().uuid(),
-        contactIds: z.array(z.string().uuid()).min(1),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/groups/{groupId}/contacts",
+        tags: ["groups"],
+        summary: "Remove contacts from group",
+        description: "Remove multiple contacts from a group",
+        protect: true,
+      },
+    })
+    .input(removeContactsInputSchema)
+    .output(removeContactsOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const [group] = await ctx.db
         .select()
@@ -343,12 +466,18 @@ export const groupsRouter = router({
     }),
 
   bulkDelete: protectedProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        ids: z.array(z.string().uuid()).min(1),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/groups/bulk-delete",
+        tags: ["groups"],
+        summary: "Bulk delete groups",
+        description: "Soft delete multiple groups",
+        protect: true,
+      },
+    })
+    .input(bulkDeleteGroupsInputSchema)
+    .output(bulkDeleteGroupsOutputSchema)
     .mutation(async ({ ctx, input }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
         "owner",
@@ -374,13 +503,18 @@ export const groupsRouter = router({
     }),
 
   bulkUpdateStatus: protectedProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        ids: z.array(z.string().uuid()).min(1),
-        isActive: z.boolean(),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/groups/bulk-update-status",
+        tags: ["groups"],
+        summary: "Bulk update group status",
+        description: "Update active status for multiple groups",
+        protect: true,
+      },
+    })
+    .input(bulkUpdateGroupsStatusInputSchema)
+    .output(bulkUpdateGroupsStatusOutputSchema)
     .mutation(async ({ ctx, input }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
         "owner",

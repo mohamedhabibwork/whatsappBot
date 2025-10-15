@@ -13,5 +13,248 @@
     "loading": "Loading...",
     "error": "Error",
     "success": "Success"
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "pricing": "Pricing",
+      "about": "About",
+      "login": "Login",
+      "signup": "Get Started"
+    },
+    "hero": {
+      "badge": "Powerful WhatsApp Automation",
+      "title": "Automate Your WhatsApp Communication at Scale",
+      "subtitle": "Send bulk messages, manage contacts, create campaigns, and track analytics - all from one powerful platform.",
+      "cta": {
+        "primary": "Start Free Trial",
+        "secondary": "View Pricing"
+      },
+      "rating": "Trusted by 1000+ businesses"
+    },
+    "features": {
+      "title": "Everything You Need to Succeed",
+      "subtitle": "Powerful features designed to help you communicate better with your customers",
+      "messaging": {
+        "title": "Bulk Messaging",
+        "description": "Send personalized messages to thousands of contacts instantly with our bulk messaging system."
+      },
+      "automation": {
+        "title": "Smart Automation",
+        "description": "Automate repetitive tasks and create intelligent workflows to save time and increase efficiency."
+      },
+      "contacts": {
+        "title": "Contact Management",
+        "description": "Organize and segment your contacts with advanced filtering and grouping capabilities."
+      },
+      "analytics": {
+        "title": "Real-time Analytics",
+        "description": "Track message delivery, engagement rates, and campaign performance with detailed analytics."
+      },
+      "security": {
+        "title": "Enterprise Security",
+        "description": "Bank-level encryption and security measures to keep your data safe and compliant."
+      },
+      "multiTenant": {
+        "title": "Multi-Tenant Support",
+        "description": "Manage multiple businesses or clients from a single dashboard with complete isolation."
+      }
+    },
+    "pricing": {
+      "title": "Simple, Transparent Pricing",
+      "subtitle": "Choose the plan that fits your needs. No hidden fees, cancel anytime.",
+      "popular": "Most Popular",
+      "perMonth": "/month",
+      "free": {
+        "name": "Free",
+        "price": "$0",
+        "description": "Perfect for getting started",
+        "features": {
+          "messages": "100 messages/month",
+          "instances": "1 WhatsApp instance",
+          "contacts": "Up to 100 contacts",
+          "support": "Community support"
+        },
+        "cta": "Start Free"
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "$49",
+        "description": "For growing businesses",
+        "features": {
+          "messages": "10,000 messages/month",
+          "instances": "5 WhatsApp instances",
+          "contacts": "Up to 10,000 contacts",
+          "analytics": "Advanced analytics",
+          "support": "Priority email support"
+        },
+        "cta": "Start Pro Plan"
+      },
+      "enterprise": {
+        "name": "Enterprise",
+        "price": "Custom",
+        "description": "For large organizations",
+        "features": {
+          "messages": "Unlimited messages",
+          "instances": "Unlimited instances",
+          "contacts": "Unlimited contacts",
+          "customization": "Custom integrations",
+          "support": "24/7 dedicated support"
+        },
+        "cta": "Contact Sales"
+      }
+    },
+    "cta": {
+      "title": "Ready to Get Started?",
+      "subtitle": "Join thousands of businesses already using our platform to grow their customer communication.",
+      "button": "Start Your Free Trial"
+    },
+    "footer": {
+      "description": "The most powerful WhatsApp automation platform for businesses of all sizes.",
+      "product": {
+        "title": "Product",
+        "features": "Features",
+        "pricing": "Pricing"
+      },
+      "company": {
+        "title": "Company",
+        "about": "About Us",
+        "contact": "Contact"
+      },
+      "legal": {
+        "title": "Legal",
+        "privacy": "Privacy Policy",
+        "terms": "Terms of Service"
+      },
+      "copyright": "© 2024 WhatsApp Bot. All rights reserved."
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome Back",
+      "subtitle": "Enter your credentials to access your account",
+      "email": "Email",
+      "emailPlaceholder": "name@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "rememberMe": "Remember me",
+      "submit": "Sign In",
+      "forgotPassword": "Forgot your password?",
+      "noAccount": "Don't have an account?",
+      "signupLink": "Sign up",
+      "error": "Invalid email or password. Please try again."
+    },
+    "signup": {
+      "title": "Create Account",
+      "subtitle": "Get started with your free account",
+      "name": "Full Name",
+      "namePlaceholder": "John Doe",
+      "email": "Email",
+      "emailPlaceholder": "name@example.com",
+      "selectPlan": "Select Plan",
+      "choosePlan": "Choose a plan...",
+      "planHint": "You can change your plan later from settings",
+      "tenantName": "Company/Organization Name",
+      "tenantNamePlaceholder": "Acme Inc.",
+      "tenantHint": "This will be your workspace name",
+      "invitationMessage": "You're joining an existing organization with invitation code",
+      "password": "Password",
+      "passwordPlaceholder": "Min. 8 characters",
+      "confirmPassword": "Confirm Password",
+      "submit": "Create Account",
+      "hasAccount": "Already have an account?",
+      "loginLink": "Sign in",
+      "errors": {
+        "selectPlan": "Please select a plan to continue",
+        "tenantName": "Organization name is required",
+        "passwordMismatch": "Passwords do not match",
+        "passwordLength": "Password must be at least 8 characters long",
+        "name": "Full name is required",
+        "general": "An error occurred during signup. Please try again."
+      }
+    },
+    "verifyEmail": {
+      "title": "Verify Your Email",
+      "subtitle": "We've sent a verification link to your email",
+      "verifiedTitle": "Email Verified!",
+      "verifiedSubtitle": "Your email has been successfully verified",
+      "checkInbox": "Please check your inbox at {email} for the verification link",
+      "checkSpam": "Don't forget to check your spam folder if you can't find the email",
+      "resendButton": "Resend Verification Email",
+      "backToLogin": "Back to Login",
+      "continueToLogin": "Continue to Login",
+      "emailRequired": "Email address is required",
+      "success": "Email verified successfully!",
+      "error": "Failed to verify email. The link may be expired or invalid.",
+      "resendSuccess": "Verification email sent successfully!",
+      "resendError": "Failed to resend verification email",
+      "redirecting": "Redirecting you to login..."
+    },
+    "forgotPassword": {
+      "title": "Forgot Password",
+      "subtitle": "Enter your email to receive a password reset link",
+      "email": "Email",
+      "emailPlaceholder": "name@example.com",
+      "submit": "Send Reset Link",
+      "successTitle": "Check Your Email",
+      "successSubtitle": "We've sent you a password reset link",
+      "checkEmail": "We've sent a password reset link to {email}. Please check your inbox.",
+      "backToLogin": "Back to Login",
+      "rememberPassword": "Remember your password?",
+      "loginLink": "Sign in",
+      "error": "Failed to send reset link. Please try again."
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "subtitle": "Enter your new password",
+      "newPassword": "New Password",
+      "passwordPlaceholder": "Min. 8 characters",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter your password",
+      "submit": "Reset Password",
+      "successTitle": "Password Reset Successful",
+      "successSubtitle": "Your password has been updated",
+      "invalidToken": "Invalid or expired reset link",
+      "passwordMismatch": "Passwords do not match",
+      "passwordLength": "Password must be at least 8 characters long",
+      "error": "Failed to reset password. Please try again.",
+      "redirecting": "Redirecting you to login...",
+      "continueToLogin": "Continue to Login",
+      "backToLogin": "Back to Login"
+    },
+    "changePassword": {
+      "title": "Change Password",
+      "subtitle": "Update your account password",
+      "currentPassword": "Current Password",
+      "currentPasswordPlaceholder": "Enter your current password",
+      "newPassword": "New Password",
+      "newPasswordPlaceholder": "Min. 8 characters",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter your new password",
+      "submit": "Change Password",
+      "success": "Password changed successfully!",
+      "passwordMismatch": "Passwords do not match",
+      "passwordLength": "Password must be at least 8 characters long",
+      "samePassword": "New password must be different from current password",
+      "error": "Failed to change password. Please check your current password.",
+      "backToDashboard": "Back to Dashboard"
+    },
+    "updateProfile": {
+      "title": "Update Profile",
+      "subtitle": "Manage your account information",
+      "name": "Full Name",
+      "namePlaceholder": "John Doe",
+      "email": "Email",
+      "emailPlaceholder": "name@example.com",
+      "emailHint": "Changing your email will require verification",
+      "language": "Preferred Language",
+      "submit": "Update Profile",
+      "success": "Profile updated successfully!",
+      "nameRequired": "Name is required",
+      "emailRequired": "Email is required",
+      "error": "Failed to update profile. Please try again.",
+      "backToDashboard": "Back to Dashboard",
+      "changePassword": "Change Password"
+    }
   }
 }

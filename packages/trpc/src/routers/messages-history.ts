@@ -39,6 +39,16 @@ async function checkTenantAccess(
 
 export const messagesHistoryRouter = router({
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/messages-history/list",
+        tags: ["messages-history"],
+        summary: "List message history",
+        description: "Get paginated list of message history for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -87,6 +97,16 @@ export const messagesHistoryRouter = router({
     }),
 
   getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/messages-history/{id}",
+        tags: ["messages-history"],
+        summary: "Get message history by ID",
+        description: "Get a single message history record by ID",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [message] = await ctx.db
@@ -117,6 +137,16 @@ export const messagesHistoryRouter = router({
     }),
 
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/messages-history",
+        tags: ["messages-history"],
+        summary: "Create message history record",
+        description: "Create a new message history record",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -177,6 +207,16 @@ export const messagesHistoryRouter = router({
     }),
 
   updateStatus: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/messages-history/{id}/status",
+        tags: ["messages-history"],
+        summary: "Update message status",
+        description: "Update the status of a message history record",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),

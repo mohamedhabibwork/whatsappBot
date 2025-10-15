@@ -10,6 +10,7 @@ import {
   type NewInvoiceItem,
 } from "@repo/database";
 import { eq, and, desc } from "drizzle-orm";
+import { emitInvoiceEvent } from "../utils/websocket-events";
 
 // Helper to check if user has access to tenant
 async function checkTenantAccess(
@@ -56,6 +57,16 @@ const translatedDescriptionSchema = z.object({
 export const invoicesRouter = router({
   // List invoices for a tenant
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/invoices/list",
+        tags: ["invoices"],
+        summary: "List invoices",
+        description: "Get list of invoices for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -88,6 +99,16 @@ export const invoicesRouter = router({
 
   // Get invoice by ID with items
   getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/invoices/{id}",
+        tags: ["invoices"],
+        summary: "Get invoice by ID",
+        description: "Get a single invoice by ID with items",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [invoice] = await ctx.db
@@ -119,6 +140,16 @@ export const invoicesRouter = router({
 
   // Create invoice
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/invoices",
+        tags: ["invoices"],
+        summary: "Create invoice",
+        description: "Create a new invoice with items",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -221,6 +252,13 @@ export const invoicesRouter = router({
         .values(newInvoice)
         .returning();
 
+      if (!invoice) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create invoice",
+        });
+      }
+
       // Create invoice items
       const invoiceItemsList: NewInvoiceItem[] = calculatedItems.map((item) => ({
         invoiceId: invoice.id,
@@ -238,11 +276,23 @@ export const invoicesRouter = router({
 
       await ctx.db.insert(invoiceItems).values(invoiceItemsList);
 
+      emitInvoiceEvent("invoice_created", invoice.id, input.tenantId, { invoice });
+
       return { invoice };
     }),
 
   // Update invoice
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/invoices/{id}",
+        tags: ["invoices"],
+        summary: "Update invoice",
+        description: "Update an existing invoice",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -299,11 +349,23 @@ export const invoicesRouter = router({
         .where(eq(invoices.id, id))
         .returning();
 
+      emitInvoiceEvent("invoice_updated", id, existing.tenantId, { invoice: updatedInvoice });
+
       return { invoice: updatedInvoice };
     }),
 
   // Mark invoice as paid
   markAsPaid: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/invoices/{id}/mark-paid",
+        tags: ["invoices"],
+        summary: "Mark invoice as paid",
+        description: "Mark an invoice as paid",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
@@ -334,11 +396,23 @@ export const invoicesRouter = router({
         .where(eq(invoices.id, input.id))
         .returning();
 
+      emitInvoiceEvent("invoice_paid", input.id, existing.tenantId, { invoice: updatedInvoice });
+
       return { invoice: updatedInvoice };
     }),
 
   // Delete invoice (only drafts)
   delete: protectedProcedure
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/invoices/{id}",
+        tags: ["invoices"],
+        summary: "Delete invoice",
+        description: "Delete a draft invoice",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db

@@ -8,6 +8,8 @@ import {
   pgPolicy,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
 import { tenants } from "./tenants";
 
 export const messageTemplates = pgTable(
@@ -36,3 +38,31 @@ export const messageTemplates = pgTable(
 
 export type MessageTemplate = typeof messageTemplates.$inferSelect;
 export type NewMessageTemplate = typeof messageTemplates.$inferInsert;
+
+// Zod schemas for OpenAPI
+export const insertMessageTemplateSchema = createInsertSchema(messageTemplates, {
+  tenantId: z.string().uuid().describe("Tenant ID"),
+  name: z.string().min(1).describe("Template name"),
+  content: z.string().min(1).describe("Template content with variables"),
+  variables: z.array(z.string()).optional().default([]).describe("Available variables in the template"),
+  isActive: z.boolean().optional().default(true).describe("Whether the template is active"),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
+});
+
+export const selectMessageTemplateSchema = createSelectSchema(messageTemplates, {
+  id: z.string().uuid().describe("Template ID"),
+  tenantId: z.string().uuid().describe("Tenant ID"),
+  name: z.string().describe("Template name"),
+  content: z.string().describe("Template content with variables"),
+  variables: z.array(z.string()).describe("Available variables in the template"),
+  isActive: z.boolean().describe("Whether the template is active"),
+  createdAt: z.date().describe("Creation timestamp"),
+  updatedAt: z.date().describe("Last update timestamp"),
+  deletedAt: z.date().nullable().describe("Deletion timestamp"),
+});
+
+export const updateMessageTemplateSchema = insertMessageTemplateSchema.partial();

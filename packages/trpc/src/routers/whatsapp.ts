@@ -68,6 +68,16 @@ function getWhatsAppClient(sessionName: string, token?: string): WhatsAppClient 
 
 export const whatsappRouter = router({
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/whatsapp/list",
+        tags: ["whatsapp"],
+        summary: "List WhatsApp instances",
+        description: "Get paginated list of WhatsApp instances for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -95,6 +105,16 @@ export const whatsappRouter = router({
     }),
 
   getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/whatsapp/{id}",
+        tags: ["whatsapp"],
+        summary: "Get WhatsApp instance by ID",
+        description: "Get a single WhatsApp instance by ID",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [instance] = await ctx.db
@@ -121,6 +141,16 @@ export const whatsappRouter = router({
     }),
 
   getQrCode: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/whatsapp/{id}/qr-code",
+        tags: ["whatsapp"],
+        summary: "Get QR code",
+        description: "Get QR code for WhatsApp instance authentication",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [instance] = await ctx.db
@@ -176,6 +206,16 @@ export const whatsappRouter = router({
     }),
 
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/whatsapp",
+        tags: ["whatsapp"],
+        summary: "Create WhatsApp instance",
+        description: "Create a new WhatsApp instance",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -284,6 +324,16 @@ export const whatsappRouter = router({
     }),
 
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/whatsapp/{id}",
+        tags: ["whatsapp"],
+        summary: "Update WhatsApp instance",
+        description: "Update an existing WhatsApp instance",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -347,6 +397,16 @@ export const whatsappRouter = router({
     }),
 
   delete: protectedProcedure
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/whatsapp/{id}",
+        tags: ["whatsapp"],
+        summary: "Delete WhatsApp instance",
+        description: "Soft delete a WhatsApp instance",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const [existing] = await ctx.db
@@ -388,6 +448,16 @@ export const whatsappRouter = router({
     }),
 
   bulkDelete: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/whatsapp/bulk-delete",
+        tags: ["whatsapp"],
+        summary: "Bulk delete WhatsApp instances",
+        description: "Soft delete multiple WhatsApp instances",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -415,6 +485,16 @@ export const whatsappRouter = router({
     }),
 
   bulkUpdateStatus: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/whatsapp/bulk-update-status",
+        tags: ["whatsapp"],
+        summary: "Bulk update WhatsApp instance status",
+        description: "Update active status for multiple WhatsApp instances",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -446,6 +526,16 @@ export const whatsappRouter = router({
     }),
 
   disconnect: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/whatsapp/{id}/disconnect",
+        tags: ["whatsapp"],
+        summary: "Disconnect WhatsApp instance",
+        description: "Disconnect and logout a WhatsApp instance",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const [existing] = await ctx.db
@@ -503,6 +593,16 @@ export const whatsappRouter = router({
     }),
 
   reconnect: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/whatsapp/{id}/reconnect",
+        tags: ["whatsapp"],
+        summary: "Reconnect WhatsApp instance",
+        description: "Reconnect a disconnected WhatsApp instance",
+        protect: true,
+      },
+    })
     .input(z.object({ 
       id: z.string().uuid(),
       webhook: z.string().url().optional(),
@@ -583,6 +683,16 @@ export const whatsappRouter = router({
     }),
 
   checkStatus: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/whatsapp/{id}/status",
+        tags: ["whatsapp"],
+        summary: "Check WhatsApp instance status",
+        description: "Check the connection status of a WhatsApp instance",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [instance] = await ctx.db
@@ -635,6 +745,16 @@ export const whatsappRouter = router({
     }),
 
   sendMessage: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/whatsapp/{id}/send-message",
+        tags: ["whatsapp"],
+        summary: "Send message",
+        description: "Send a WhatsApp message to a contact or group",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -723,6 +843,16 @@ export const whatsappRouter = router({
     }),
 
   getSessionInfo: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/whatsapp/{id}/session-info",
+        tags: ["whatsapp"],
+        summary: "Get session info",
+        description: "Get session information for a WhatsApp instance",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [instance] = await ctx.db
@@ -772,6 +902,16 @@ export const whatsappRouter = router({
 
   // Send bulk messages to multiple contacts
   sendBulkToContacts: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/whatsapp/{instanceId}/send-bulk-to-contacts",
+        tags: ["whatsapp"],
+        summary: "Send bulk messages to contacts",
+        description: "Send messages to multiple contacts",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         instanceId: z.string().uuid(),
@@ -915,6 +1055,16 @@ export const whatsappRouter = router({
 
   // Send bulk messages to a group
   sendBulkToGroup: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/whatsapp/{instanceId}/send-bulk-to-group",
+        tags: ["whatsapp"],
+        summary: "Send bulk messages to group",
+        description: "Send messages to all contacts in a group",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         instanceId: z.string().uuid(),
@@ -1082,6 +1232,16 @@ export const whatsappRouter = router({
 
   // Send message to single contact using template
   sendWithTemplate: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/whatsapp/{instanceId}/send-with-template",
+        tags: ["whatsapp"],
+        summary: "Send message with template",
+        description: "Send a templated message to a contact",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         instanceId: z.string().uuid(),

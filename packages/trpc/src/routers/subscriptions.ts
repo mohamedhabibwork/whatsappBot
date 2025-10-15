@@ -18,6 +18,12 @@ import {
   initializeUsage,
 } from "../utils/subscription-usage";
 import { emitSubscriptionEvent } from "../utils/websocket-events";
+import {
+  createSubscriptionWithWorkflow,
+  renewSubscriptionWithWorkflow,
+  cancelSubscriptionWithWorkflow,
+  completePaymentForSubscription,
+} from "../utils/subscription-workflow";
 
 // Helper to check if user has access to tenant
 async function checkTenantAccess(
@@ -50,6 +56,16 @@ async function checkTenantAccess(
 export const subscriptionsRouter = router({
   // List subscriptions for a tenant
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/subscriptions/list",
+        tags: ["subscriptions"],
+        summary: "List subscriptions",
+        description: "Get list of subscriptions for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -86,6 +102,16 @@ export const subscriptionsRouter = router({
 
   // Get subscription by ID with features
   getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/subscriptions/{id}",
+        tags: ["subscriptions"],
+        summary: "Get subscription by ID",
+        description: "Get a single subscription by ID with features",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [result] = await ctx.db
@@ -132,6 +158,16 @@ export const subscriptionsRouter = router({
 
   // Get active subscription for tenant
   getActive: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/subscriptions/active",
+        tags: ["subscriptions"],
+        summary: "Get active subscription",
+        description: "Get active subscription for a tenant",
+        protect: true,
+      },
+    })
     .input(z.object({ tenantId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
@@ -169,8 +205,18 @@ export const subscriptionsRouter = router({
       };
     }),
 
-  // Create subscription
+  // Create subscription with workflow
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/subscriptions",
+        tags: ["subscriptions"],
+        summary: "Create subscription",
+        description: "Create a new subscription with workflow",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -185,108 +231,23 @@ export const subscriptionsRouter = router({
         "admin",
       ]);
 
-      // Get plan details
-      const [plan] = await ctx.db
-        .select()
-        .from(plans)
-        .where(eq(plans.id, input.planId))
-        .limit(1);
+      const result = await createSubscriptionWithWorkflow(ctx.db, input);
 
-      if (!plan) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Plan not found",
-        });
-      }
-
-      if (!plan.isActive) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Plan is not active",
-        });
-      }
-
-      const startDate = input.startDate || new Date();
-      const trialDays = plan.trialDays ?? 0;
-      const trialEnd = trialDays > 0
-        ? new Date(startDate.getTime() + trialDays * 24 * 60 * 60 * 1000)
-        : null;
-
-      // Calculate period end based on billing cycle
-      let periodEnd = new Date(startDate);
-      switch (plan.billingCycle) {
-        case "daily":
-          periodEnd.setDate(periodEnd.getDate() + 1);
-          break;
-        case "weekly":
-          periodEnd.setDate(periodEnd.getDate() + 7);
-          break;
-        case "monthly":
-          periodEnd.setMonth(periodEnd.getMonth() + 1);
-          break;
-        case "quarterly":
-          periodEnd.setMonth(periodEnd.getMonth() + 3);
-          break;
-        case "semiannually":
-          periodEnd.setMonth(periodEnd.getMonth() + 6);
-          break;
-        case "yearly":
-          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-          break;
-      }
-
-      const newSubscription: NewSubscription = {
-        tenantId: input.tenantId,
-        planId: input.planId,
-        status: trialDays > 0 ? "trial" : "active",
-        currentPeriodStart: startDate,
-        currentPeriodEnd: periodEnd,
-        trialStart: trialDays > 0 ? startDate : null,
-        trialEnd,
-        price: plan.price,
-        currency: plan.currency,
-        metadata: input.metadata || {},
-      };
-
-      const [subscription] = await ctx.db
-        .insert(subscriptions)
-        .values(newSubscription)
-        .returning();
-
-      if (!subscription) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create subscription",
-        });
-      }
-
-      // Copy plan features to subscription features
-      const planFeaturesList = await ctx.db
-        .select()
-        .from(planFeatures)
-        .where(eq(planFeatures.planId, input.planId));
-
-      if (planFeaturesList.length > 0) {
-        const subscriptionFeaturesList: NewSubscriptionFeature[] =
-          planFeaturesList.map((feature) => ({
-            subscriptionId: subscription.id,
-            planFeatureId: feature.id,
-            featureKey: feature.featureKey,
-            featureValue: feature.featureValue,
-            isEnabled: feature.isEnabled,
-            metadata: {},
-          }));
-
-        await ctx.db
-          .insert(subscriptionFeatures)
-          .values(subscriptionFeaturesList);
-      }
-
-      return { subscription };
+      return result;
     }),
 
   // Update subscription
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/subscriptions/{id}",
+        tags: ["subscriptions"],
+        summary: "Update subscription",
+        description: "Update an existing subscription",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -333,8 +294,18 @@ export const subscriptionsRouter = router({
       return { subscription: updatedSubscription };
     }),
 
-  // Cancel subscription
+  // Cancel subscription with workflow
   cancel: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/subscriptions/{id}/cancel",
+        tags: ["subscriptions"],
+        summary: "Cancel subscription",
+        description: "Cancel a subscription with workflow",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -360,27 +331,27 @@ export const subscriptionsRouter = router({
         "admin",
       ]);
 
-      const updates: any = {
-        cancelAtPeriodEnd: input.cancelAtPeriodEnd,
-        updatedAt: new Date(),
-      };
+      const result = await cancelSubscriptionWithWorkflow(
+        ctx.db,
+        input.id,
+        input.cancelAtPeriodEnd,
+      );
 
-      if (!input.cancelAtPeriodEnd) {
-        updates.status = "cancelled";
-        updates.cancelledAt = new Date();
-      }
-
-      const [updatedSubscription] = await ctx.db
-        .update(subscriptions)
-        .set(updates)
-        .where(eq(subscriptions.id, input.id))
-        .returning();
-
-      return { subscription: updatedSubscription };
+      return result;
     }),
 
-  // Renew subscription
+  // Renew subscription with workflow
   renew: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/subscriptions/{id}/renew",
+        tags: ["subscriptions"],
+        summary: "Renew subscription",
+        description: "Renew a subscription with workflow",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
@@ -401,51 +372,23 @@ export const subscriptionsRouter = router({
         "admin",
       ]);
 
-      const [plan] = await ctx.db
-        .select()
-        .from(plans)
-        .where(eq(plans.id, existing.planId))
-        .limit(1);
+      const result = await renewSubscriptionWithWorkflow(ctx.db, input.id);
 
-      if (!plan) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Plan not found",
-        });
-      }
-
-      const newPeriodStart = existing.currentPeriodEnd;
-      let newPeriodEnd = new Date(newPeriodStart);
-
-      switch (plan.billingCycle) {
-        case "monthly":
-          newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1);
-          break;
-        case "quarterly":
-          newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 3);
-          break;
-        case "yearly":
-          newPeriodEnd.setFullYear(newPeriodEnd.getFullYear() + 1);
-          break;
-      }
-
-      const [updatedSubscription] = await ctx.db
-        .update(subscriptions)
-        .set({
-          status: "active",
-          currentPeriodStart: newPeriodStart,
-          currentPeriodEnd: newPeriodEnd,
-          cancelAtPeriodEnd: false,
-          updatedAt: new Date(),
-        })
-        .where(eq(subscriptions.id, input.id))
-        .returning();
-
-      return { subscription: updatedSubscription };
+      return result;
     }),
 
   // Get usage statistics for a tenant
   getUsageStats: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/subscriptions/usage-stats",
+        tags: ["subscriptions"],
+        summary: "Get usage statistics",
+        description: "Get usage statistics for a tenant",
+        protect: true,
+      },
+    })
     .input(z.object({ tenantId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
@@ -461,6 +404,16 @@ export const subscriptionsRouter = router({
 
   // Check specific feature usage limit
   checkUsageLimit: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/subscriptions/check-usage-limit",
+        tags: ["subscriptions"],
+        summary: "Check usage limit",
+        description: "Check if feature usage limit is reached",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -491,6 +444,16 @@ export const subscriptionsRouter = router({
 
   // Initialize usage for a feature
   initializeFeatureUsage: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/subscriptions/initialize-usage",
+        tags: ["subscriptions"],
+        summary: "Initialize feature usage",
+        description: "Initialize usage tracking for a feature",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -542,6 +505,16 @@ export const subscriptionsRouter = router({
 
   // Get current period usage details
   getCurrentUsage: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/subscriptions/current-usage",
+        tags: ["subscriptions"],
+        summary: "Get current usage",
+        description: "Get current period usage details for a tenant",
+        protect: true,
+      },
+    })
     .input(z.object({ tenantId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [

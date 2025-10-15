@@ -69,9 +69,13 @@
   },
   "billing": {
     "cycle": {
+      "daily": "Daily",
+      "weekly": "Weekly",
       "monthly": "Monthly",
       "quarterly": "Quarterly",
-      "yearly": "Yearly"
+      "yearly": "Yearly",
+      "semiannually": "Semiannually",
+      "annually": "Annually"
     },
     "currency": {
       "USD": "US Dollar",

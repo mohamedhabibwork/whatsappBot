@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@repo/ui": "*",
+    "minimatch": "^10.0.3",
     "next": "^15.5.0",
     "next-intl": "^3.26.2",
     "react": "^19.1.0",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
+    "@types/minimatch": "^6.0.0",
     "@types/node": "^22.15.3",
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.1",

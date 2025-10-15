@@ -46,7 +46,18 @@ async function checkTenantPermission(
 
 export const tenantsRouter = router({
   // Get user's tenants
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/tenants/list",
+        tags: ["tenants"],
+        summary: "List user tenants",
+        description: "Get list of tenants for current user",
+        protect: true,
+      },
+    })
+    .query(async ({ ctx }) => {
     const userTenants = await ctx.db
       .select({
         id: tenants.id,
@@ -66,6 +77,16 @@ export const tenantsRouter = router({
 
   // Create new tenant
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/tenants",
+        tags: ["tenants"],
+        summary: "Create tenant",
+        description: "Create a new tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         name: z.string().min(1).max(100),
@@ -102,6 +123,13 @@ export const tenantsRouter = router({
         } as NewTenant)
         .returning();
 
+      if (!newTenant) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create tenant",
+        });
+      }
+
       // Assign creator as owner
       await ctx.db.insert(userTenantRoles).values({
         userId: ctx.userId,
@@ -114,6 +142,16 @@ export const tenantsRouter = router({
 
   // Invite user to tenant
   invite: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/tenants/{tenantId}/invite",
+        tags: ["tenants"],
+        summary: "Invite user to tenant",
+        description: "Send an invitation email to a user to join a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -203,6 +241,13 @@ export const tenantsRouter = router({
         } as NewTenantInvitation)
         .returning();
 
+      if (!invitation) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: input.language === "ar" ? "فشل في إنشاء الدعوة" : "Failed to create invitation",
+        });
+      }
+
       // Get inviter name
       const [inviter] = await ctx.db
         .select({ name: users.name })
@@ -247,6 +292,16 @@ export const tenantsRouter = router({
 
   // List tenant invitations (for owners/admins)
   listInvitations: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/tenants/{tenantId}/invitations",
+        tags: ["tenants"],
+        summary: "List tenant invitations",
+        description: "Get list of invitations for a tenant",
+        protect: true,
+      },
+    })
     .input(z.object({ tenantId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
       // Check permission
@@ -271,6 +326,16 @@ export const tenantsRouter = router({
 
   // Cancel invitation
   cancelInvitation: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/tenants/{tenantId}/invitations/{invitationId}/cancel",
+        tags: ["tenants"],
+        summary: "Cancel invitation",
+        description: "Cancel a pending tenant invitation",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         invitationId: z.string().uuid(),
@@ -294,6 +359,16 @@ export const tenantsRouter = router({
 
   // Get tenant members
   listMembers: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/tenants/{tenantId}/members",
+        tags: ["tenants"],
+        summary: "List tenant members",
+        description: "Get list of members for a tenant",
+        protect: true,
+      },
+    })
     .input(z.object({ tenantId: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
       // Check if user is member of tenant
@@ -332,6 +407,16 @@ export const tenantsRouter = router({
 
   // Update member role
   updateMemberRole: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/tenants/{tenantId}/members/{userId}/role",
+        tags: ["tenants"],
+        summary: "Update member role",
+        description: "Update the role of a tenant member",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -384,6 +469,16 @@ export const tenantsRouter = router({
 
   // Remove member from tenant
   removeMember: protectedProcedure
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/tenants/{tenantId}/members/{userId}",
+        tags: ["tenants"],
+        summary: "Remove tenant member",
+        description: "Remove a user from a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),

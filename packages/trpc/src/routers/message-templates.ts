@@ -38,6 +38,16 @@ async function checkTenantAccess(
 
 export const messageTemplatesRouter = router({
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/message-templates/list",
+        tags: ["message-templates"],
+        summary: "List message templates",
+        description: "Get paginated list of message templates for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -65,6 +75,16 @@ export const messageTemplatesRouter = router({
     }),
 
   getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/message-templates/{id}",
+        tags: ["message-templates"],
+        summary: "Get message template by ID",
+        description: "Get a single message template by ID",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [template] = await ctx.db
@@ -91,6 +111,16 @@ export const messageTemplatesRouter = router({
     }),
 
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/message-templates",
+        tags: ["message-templates"],
+        summary: "Create message template",
+        description: "Create a new message template for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -130,6 +160,16 @@ export const messageTemplatesRouter = router({
     }),
 
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/message-templates/{id}",
+        tags: ["message-templates"],
+        summary: "Update message template",
+        description: "Update an existing message template",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -185,6 +225,16 @@ export const messageTemplatesRouter = router({
     }),
 
   delete: protectedProcedure
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/message-templates/{id}",
+        tags: ["message-templates"],
+        summary: "Delete message template",
+        description: "Soft delete a message template",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db

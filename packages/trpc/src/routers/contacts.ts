@@ -5,9 +5,72 @@ import {
   contacts,
   userTenantRoles,
   type NewContact,
+  selectContactSchema,
 } from "@repo/database";
 import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import { emitContactEvent } from "../utils/websocket-events";
+
+// Input Schemas
+export const listContactsInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  limit: z.number().min(1).max(100).default(50),
+  offset: z.number().min(0).default(0),
+});
+
+export const getContactByIdInputSchema = z.object({ id: z.string().uuid() });
+
+export const createContactInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  phoneNumber: z.string().min(1),
+  name: z.string().optional(),
+  timezone: z.string().optional(),
+  language: z.string().optional(),
+});
+
+export const updateContactInputSchema = z.object({
+  id: z.string().uuid(),
+  phoneNumber: z.string().min(1).optional(),
+  name: z.string().optional(),
+  isActive: z.boolean().optional(),
+  timezone: z.string().optional(),
+  language: z.string().optional(),
+});
+
+export const deleteContactInputSchema = z.object({ id: z.string().uuid() });
+
+export const bulkDeleteContactsInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  ids: z.array(z.string().uuid()).min(1),
+});
+
+export const bulkUpdateContactsStatusInputSchema = z.object({
+  tenantId: z.string().uuid(),
+  ids: z.array(z.string().uuid()).min(1),
+  isActive: z.boolean(),
+});
+
+// Output Schemas
+export const listContactsOutputSchema = z.object({
+  contacts: z.array(selectContactSchema),
+});
+
+export const getContactByIdOutputSchema = z.object({
+  contact: selectContactSchema,
+});
+
+export const createContactOutputSchema = z.object({
+  contact: selectContactSchema,
+});
+
+export const updateContactOutputSchema = z.object({
+  contact: selectContactSchema,
+});
+
+export const deleteContactOutputSchema = z.object({ success: z.boolean() });
+
+export const bulkDeleteContactsOutputSchema = z.object({ success: z.boolean() });
+
+export const bulkUpdateContactsStatusOutputSchema = z.object({ success: z.boolean() });
 
 async function checkTenantAccess(
   db: any,
@@ -38,13 +101,18 @@ async function checkTenantAccess(
 
 export const contactsRouter = router({
   list: protectedProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        limit: z.number().min(1).max(100).default(50),
-        offset: z.number().min(0).default(0),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/contacts/list",
+        tags: ["contacts"],
+        summary: "List contacts",
+        description: "Get paginated list of contacts for a tenant",
+        protect: true,
+      },
+    })
+    .input(listContactsInputSchema)
+    .output(listContactsOutputSchema)
     .query(async ({ ctx, input }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId);
 
@@ -65,7 +133,18 @@ export const contactsRouter = router({
     }),
 
   getById: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/contacts/{id}",
+        tags: ["contacts"],
+        summary: "Get contact by ID",
+        description: "Get a single contact by ID",
+        protect: true,
+      },
+    })
+    .input(getContactByIdInputSchema)
+    .output(getContactByIdOutputSchema)
     .query(async ({ ctx, input }) => {
       const [contact] = await ctx.db
         .select()
@@ -91,15 +170,18 @@ export const contactsRouter = router({
     }),
 
   create: protectedProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        phoneNumber: z.string().min(1),
-        name: z.string().optional(),
-        timezone: z.string().optional(),
-        language: z.string().optional(),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/contacts",
+        tags: ["contacts"],
+        summary: "Create contact",
+        description: "Create a new contact for a tenant",
+        protect: true,
+      },
+    })
+    .input(createContactInputSchema)
+    .output(createContactOutputSchema)
     .mutation(async ({ input, ctx }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
         "owner",
@@ -152,16 +234,18 @@ export const contactsRouter = router({
     }),
 
   update: protectedProcedure
-    .input(
-      z.object({
-        id: z.string().uuid(),
-        phoneNumber: z.string().min(1).optional(),
-        name: z.string().optional(),
-        isActive: z.boolean().optional(),
-        timezone: z.string().optional(),
-        language: z.string().optional(),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/contacts/{id}",
+        tags: ["contacts"],
+        summary: "Update contact",
+        description: "Update an existing contact",
+        protect: true,
+      },
+    })
+    .input(updateContactInputSchema)
+    .output(updateContactOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
         .select()
@@ -208,7 +292,18 @@ export const contactsRouter = router({
     }),
 
   delete: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/contacts/{id}",
+        tags: ["contacts"],
+        summary: "Delete contact",
+        description: "Soft delete a contact",
+        protect: true,
+      },
+    })
+    .input(deleteContactInputSchema)
+    .output(deleteContactOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
         .select()
@@ -244,12 +339,18 @@ export const contactsRouter = router({
     }),
 
   bulkDelete: protectedProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        ids: z.array(z.string().uuid()).min(1),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/contacts/bulk-delete",
+        tags: ["contacts"],
+        summary: "Bulk delete contacts",
+        description: "Soft delete multiple contacts",
+        protect: true,
+      },
+    })
+    .input(bulkDeleteContactsInputSchema)
+    .output(bulkDeleteContactsOutputSchema)
     .mutation(async ({ ctx, input }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
         "owner",
@@ -275,13 +376,18 @@ export const contactsRouter = router({
     }),
 
   bulkUpdateStatus: protectedProcedure
-    .input(
-      z.object({
-        tenantId: z.string().uuid(),
-        ids: z.array(z.string().uuid()).min(1),
-        isActive: z.boolean(),
-      }),
-    )
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/contacts/bulk-update-status",
+        tags: ["contacts"],
+        summary: "Bulk update contact status",
+        description: "Update active status for multiple contacts",
+        protect: true,
+      },
+    })
+    .input(bulkUpdateContactsStatusInputSchema)
+    .output(bulkUpdateContactsStatusOutputSchema)
     .mutation(async ({ ctx, input }) => {
       await checkTenantAccess(ctx.db, ctx.userId, input.tenantId, [
         "owner",

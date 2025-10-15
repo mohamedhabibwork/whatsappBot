@@ -9,11 +9,12 @@
     "./routers": "./src/routers/index.ts"
   },
   "dependencies": {
-    "@trpc/server": "^11.0.0-rc.690",
-    "@trpc/client": "^11.0.0-rc.690",
     "@repo/database": "workspace:*",
-    "zod": "^3.24.1",
-    "superjson": "^2.2.2"
+    "@trpc/client": "^11.6.0",
+    "@trpc/server": "^11.6.0",
+    "superjson": "^2.2.2",
+    "trpc-to-openapi": "^3.1.0",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

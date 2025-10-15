@@ -8,8 +8,12 @@ import {
   userTenantRoles,
   type NewPayment,
   type NewPaymentTranslation,
+  selectPaymentSchema,
+  selectInvoiceSchema,
 } from "@repo/database";
 import { eq, and, desc } from "drizzle-orm";
+import { emitPaymentEvent, emitInvoiceEvent } from "../utils/websocket-events";
+import { completePaymentForSubscription } from "../utils/subscription-workflow";
 
 // Helper to check if user has access to tenant
 async function checkTenantAccess(
@@ -51,12 +55,30 @@ function generatePaymentNumber(): string {
 export const paymentsRouter = router({
   // List payments for a tenant
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/payments/list",
+        tags: ["payments"],
+        summary: "List payments",
+        description: "Get list of payments for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
         status: z
           .enum(["pending", "completed", "failed", "refunded", "cancelled"])
           .optional(),
+      }),
+    )
+    .output(
+      z.object({
+        payments: z.array(z.object({
+          payment: selectPaymentSchema,
+          invoice: selectInvoiceSchema.nullable(),
+        })),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -87,7 +109,24 @@ export const paymentsRouter = router({
 
   // Get payment by ID with translations
   getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/payments/{id}",
+        tags: ["payments"],
+        summary: "Get payment by ID",
+        description: "Get a single payment by ID with translations and invoice",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
+    .output(
+      z.object({
+        payment: selectPaymentSchema,
+        translations: z.array(z.any()),
+        invoice: selectInvoiceSchema.nullable(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const [payment] = await ctx.db
         .select()
@@ -129,6 +168,16 @@ export const paymentsRouter = router({
 
   // Create payment
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/payments",
+        tags: ["payments"],
+        summary: "Create payment",
+        description: "Create a new payment record",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -148,6 +197,11 @@ export const paymentsRouter = router({
           )
           .optional(),
         metadata: z.record(z.any()).optional(),
+      }),
+    )
+    .output(
+      z.object({
+        payment: selectPaymentSchema,
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -211,11 +265,23 @@ export const paymentsRouter = router({
         await ctx.db.insert(paymentTranslations).values(translationsList);
       }
 
+      emitPaymentEvent("payment_created", payment.id, input.tenantId, { payment });
+
       return { payment };
     }),
 
   // Update payment
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/payments/{id}",
+        tags: ["payments"],
+        summary: "Update payment",
+        description: "Update an existing payment",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -225,6 +291,11 @@ export const paymentsRouter = router({
         transactionId: z.string().optional(),
         failureReason: z.string().optional(),
         metadata: z.record(z.any()).optional(),
+      }),
+    )
+    .output(
+      z.object({
+        payment: selectPaymentSchema,
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -274,6 +345,25 @@ export const paymentsRouter = router({
             updatedAt: new Date(),
           })
           .where(eq(invoices.id, existing.invoiceId));
+
+        emitInvoiceEvent("invoice_paid", existing.invoiceId, existing.tenantId, {
+          invoiceId: existing.invoiceId,
+        });
+      }
+
+      if (updateData.status) {
+        const eventType =
+          updateData.status === "completed"
+            ? "payment_succeeded"
+            : updateData.status === "failed"
+            ? "payment_failed"
+            : updateData.status === "refunded"
+            ? "payment_refunded"
+            : null;
+
+        if (eventType) {
+          emitPaymentEvent(eventType, id, existing.tenantId, { payment: updatedPayment });
+        }
       }
 
       return { payment: updatedPayment };
@@ -281,10 +371,25 @@ export const paymentsRouter = router({
 
   // Mark payment as completed
   markAsCompleted: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/payments/{id}/mark-completed",
+        tags: ["payments"],
+        summary: "Mark payment as completed",
+        description: "Mark a payment as completed and update invoice status",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
         transactionId: z.string().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        payment: selectPaymentSchema,
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -327,17 +432,40 @@ export const paymentsRouter = router({
             updatedAt: new Date(),
           })
           .where(eq(invoices.id, existing.invoiceId));
+
+        emitInvoiceEvent("invoice_paid", existing.invoiceId, existing.tenantId, {
+          invoiceId: existing.invoiceId,
+        });
       }
+
+      emitPaymentEvent("payment_succeeded", input.id, existing.tenantId, {
+        payment: updatedPayment,
+      });
 
       return { payment: updatedPayment };
     }),
 
   // Mark payment as failed
   markAsFailed: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/payments/{id}/mark-failed",
+        tags: ["payments"],
+        summary: "Mark payment as failed",
+        description: "Mark a payment as failed with a reason",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
         failureReason: z.string(),
+      }),
+    )
+    .output(
+      z.object({
+        payment: selectPaymentSchema,
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -369,15 +497,35 @@ export const paymentsRouter = router({
         .where(eq(payments.id, input.id))
         .returning();
 
+      emitPaymentEvent("payment_failed", input.id, existing.tenantId, {
+        payment: updatedPayment,
+        reason: input.failureReason,
+      });
+
       return { payment: updatedPayment };
     }),
 
   // Refund payment
   refund: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/payments/{id}/refund",
+        tags: ["payments"],
+        summary: "Refund payment",
+        description: "Refund a completed payment partially or fully",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
         amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+      }),
+    )
+    .output(
+      z.object({
+        payment: selectPaymentSchema,
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -440,19 +588,44 @@ export const paymentsRouter = router({
             updatedAt: new Date(),
           })
           .where(eq(invoices.id, existing.invoiceId));
+
+        emitInvoiceEvent("invoice_updated", existing.invoiceId, existing.tenantId, {
+          invoiceId: existing.invoiceId,
+          status: "refunded",
+        });
       }
+
+      emitPaymentEvent("payment_refunded", input.id, existing.tenantId, {
+        payment: updatedPayment,
+        refundAmount: input.amount,
+      });
 
       return { payment: updatedPayment };
     }),
 
   // Add translation to payment
   addTranslation: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/payments/{paymentId}/translations",
+        tags: ["payments"],
+        summary: "Add payment translation",
+        description: "Add a translation field to a payment",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         paymentId: z.string().uuid(),
         language: z.enum(["en", "ar"]),
         fieldName: z.string(),
         fieldValue: z.string(),
+      }),
+    )
+    .output(
+      z.object({
+        translation: z.any(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -491,7 +664,18 @@ export const paymentsRouter = router({
 
   // Delete translation
   deleteTranslation: protectedProcedure
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/payments/translations/{id}",
+        tags: ["payments"],
+        summary: "Delete payment translation",
+        description: "Delete a translation field from a payment",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
+    .output(z.object({ success: z.boolean() }))
     .mutation(async ({ input, ctx }) => {
       const [translation] = await ctx.db
         .select()
@@ -524,5 +708,52 @@ export const paymentsRouter = router({
         .where(eq(paymentTranslations.id, input.id));
 
       return { success: true };
+    }),
+
+  // Complete payment for subscription (workflow)
+  completePayment: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/payments/{id}/complete",
+        tags: ["payments"],
+        summary: "Complete payment workflow",
+        description: "Complete payment and activate associated subscription",
+        protect: true,
+      },
+    })
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        transactionId: z.string().optional(),
+      }),
+    )
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const [existing] = await ctx.db
+        .select()
+        .from(payments)
+        .where(eq(payments.id, input.id))
+        .limit(1);
+
+      if (!existing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Payment not found",
+        });
+      }
+
+      await checkTenantAccess(ctx.db, ctx.userId, existing.tenantId, [
+        "owner",
+        "admin",
+      ]);
+
+      const result = await completePaymentForSubscription(
+        ctx.db,
+        input.id,
+        input.transactionId,
+      );
+
+      return result;
     }),
 });

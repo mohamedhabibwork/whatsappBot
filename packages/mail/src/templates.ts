@@ -170,13 +170,16 @@ export const templates = {
 export type TemplateType = keyof typeof templates;
 export type Language = "en" | "ar";
 
-interface TemplateData {
-  name: string;
-  url: string;
+export interface TemplateData {
+  name?: string;
+  url?: string;
+  verificationUrl?: string;
+  resetUrl?: string;
   expirationHours?: number;
   tenantName?: string;
   inviterName?: string;
   role?: string;
+  [key: string]: any;
 }
 
 export function compileTemplate(

@@ -52,6 +52,16 @@ async function checkTenantAccess(
 
 export const campaignsRouter = router({
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/campaigns/list",
+        tags: ["campaigns"],
+        summary: "List campaigns",
+        description: "Get paginated list of campaigns for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -79,6 +89,16 @@ export const campaignsRouter = router({
     }),
 
   getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/campaigns/{id}",
+        tags: ["campaigns"],
+        summary: "Get campaign by ID",
+        description: "Get a single campaign by ID with recipients",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [campaign] = await ctx.db
@@ -120,6 +140,16 @@ export const campaignsRouter = router({
     }),
 
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/campaigns",
+        tags: ["campaigns"],
+        summary: "Create campaign",
+        description: "Create a new messaging campaign",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -250,6 +280,16 @@ export const campaignsRouter = router({
     }),
 
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/campaigns/{id}",
+        tags: ["campaigns"],
+        summary: "Update campaign",
+        description: "Update an existing campaign",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -314,6 +354,16 @@ export const campaignsRouter = router({
     }),
 
   delete: protectedProcedure
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/campaigns/{id}",
+        tags: ["campaigns"],
+        summary: "Delete campaign",
+        description: "Soft delete a campaign",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
@@ -357,6 +407,16 @@ export const campaignsRouter = router({
     }),
 
   start: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/campaigns/{id}/start",
+        tags: ["campaigns"],
+        summary: "Start campaign",
+        description: "Start a campaign and queue messages",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
@@ -520,6 +580,16 @@ export const campaignsRouter = router({
     }),
 
   cancel: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/campaigns/{id}/cancel",
+        tags: ["campaigns"],
+        summary: "Cancel campaign",
+        description: "Cancel a running or scheduled campaign",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
@@ -577,6 +647,16 @@ export const campaignsRouter = router({
     }),
 
   bulkDelete: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/campaigns/bulk-delete",
+        tags: ["campaigns"],
+        summary: "Bulk delete campaigns",
+        description: "Soft delete multiple campaigns",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -608,6 +688,16 @@ export const campaignsRouter = router({
     }),
 
   bulkUpdateStatus: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/campaigns/bulk-update-status",
+        tags: ["campaigns"],
+        summary: "Bulk update campaign status",
+        description: "Update status for multiple campaigns",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),

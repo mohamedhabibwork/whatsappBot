@@ -1,4 +1,4 @@
-import { router } from "../trpc";
+import { t } from "../trpc";
 import { authRouter } from "./auth";
 import { usersRouter } from "./users";
 import { tenantsRouter } from "./tenants";
@@ -15,7 +15,8 @@ import { messagesHistoryRouter } from "./messages-history";
 import { notificationsRouter } from "./notifications";
 import { whatsappRouter } from "./whatsapp";
 
-export const appRouter = router({
+
+export const appRouter = t.router({
   auth: authRouter,
   users: usersRouter,
   tenants: tenantsRouter,

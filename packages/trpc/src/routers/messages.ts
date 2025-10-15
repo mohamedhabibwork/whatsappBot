@@ -5,6 +5,16 @@ import { eq, and, desc } from "drizzle-orm";
 
 export const messagesRouter = router({
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/messages/list",
+        tags: ["messages"],
+        summary: "List messages",
+        description: "Get paginated list of messages for a WhatsApp instance",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         instanceId: z.string().uuid(),
@@ -41,6 +51,16 @@ export const messagesRouter = router({
     }),
 
   getByChatId: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/messages/by-chat/{chatId}",
+        tags: ["messages"],
+        summary: "Get messages by chat ID",
+        description: "Get paginated list of messages for a specific chat",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         instanceId: z.string().uuid(),

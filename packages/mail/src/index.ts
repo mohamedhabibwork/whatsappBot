@@ -4,6 +4,7 @@ export {
   compileTemplate,
   templates,
   type TemplateType,
-  type TemplateLanguage,
+  type Language,
   type MailTemplateData,
+  type TemplateData,
 } from "./templates";

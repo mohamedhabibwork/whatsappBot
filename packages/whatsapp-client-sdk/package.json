@@ -9,8 +9,6 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
     "lint": "eslint src/**/*.ts",
     "check-types": "tsc --noEmit"
   },

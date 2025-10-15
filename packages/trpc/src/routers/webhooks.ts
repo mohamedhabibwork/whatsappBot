@@ -44,6 +44,16 @@ function generateWebhookSecret(): string {
 
 export const webhooksRouter = router({
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/webhooks/list",
+        tags: ["webhooks"],
+        summary: "List webhooks",
+        description: "Get paginated list of webhooks for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -71,6 +81,16 @@ export const webhooksRouter = router({
     }),
 
   getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/webhooks/{id}",
+        tags: ["webhooks"],
+        summary: "Get webhook by ID",
+        description: "Get a single webhook by ID",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const [webhook] = await ctx.db
@@ -97,6 +117,16 @@ export const webhooksRouter = router({
     }),
 
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/webhooks",
+        tags: ["webhooks"],
+        summary: "Create webhook",
+        description: "Create a new webhook for a tenant",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         tenantId: z.string().uuid(),
@@ -139,6 +169,16 @@ export const webhooksRouter = router({
     }),
 
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/webhooks/{id}",
+        tags: ["webhooks"],
+        summary: "Update webhook",
+        description: "Update an existing webhook",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         id: z.string().uuid(),
@@ -194,6 +234,16 @@ export const webhooksRouter = router({
     }),
 
   delete: protectedProcedure
+    .meta({
+      openapi: {
+        method: "DELETE",
+        path: "/webhooks/{id}",
+        tags: ["webhooks"],
+        summary: "Delete webhook",
+        description: "Soft delete a webhook",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
@@ -230,6 +280,16 @@ export const webhooksRouter = router({
     }),
 
   regenerateSecret: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/webhooks/{id}/regenerate-secret",
+        tags: ["webhooks"],
+        summary: "Regenerate webhook secret",
+        description: "Regenerate the secret key for a webhook",
+        protect: true,
+      },
+    })
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const [existing] = await ctx.db
@@ -267,6 +327,16 @@ export const webhooksRouter = router({
     }),
 
   getLogs: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/webhooks/{webhookId}/logs",
+        tags: ["webhooks"],
+        summary: "Get webhook logs",
+        description: "Get execution logs for a webhook",
+        protect: true,
+      },
+    })
     .input(
       z.object({
         webhookId: z.string().uuid(),

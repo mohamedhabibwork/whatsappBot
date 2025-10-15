@@ -8,6 +8,8 @@ import {
   pgPolicy,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
 import { tenants } from "./tenants";
 import { messageTemplates } from "./message-templates";
 import { whatsappInstances } from "./whatsapp-instances";
@@ -51,3 +53,51 @@ export const campaigns = pgTable(
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type NewCampaign = typeof campaigns.$inferInsert;
+
+// Zod schemas for OpenAPI
+export const insertCampaignSchema = createInsertSchema(campaigns, {
+  tenantId: z.string().uuid().describe("Tenant ID"),
+  whatsappInstanceId: z.string().uuid().describe("WhatsApp instance ID"),
+  messageTemplateId: z.string().uuid().optional().describe("Message template ID"),
+  name: z.string().min(1).describe("Campaign name"),
+  message: z.string().min(1).describe("Campaign message"),
+  status: z.enum(["draft", "scheduled", "running", "completed", "cancelled"]).optional().default("draft").describe("Campaign status"),
+  scheduledAt: z.date().optional().describe("Scheduled start time"),
+  isActive: z.boolean().optional().default(true).describe("Whether the campaign is active"),
+  timezone: z.string().optional().describe("Campaign timezone"),
+  language: z.string().optional().describe("Campaign language"),
+}).omit({
+  id: true,
+  startedAt: true,
+  completedAt: true,
+  totalRecipients: true,
+  sentCount: true,
+  failedCount: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
+});
+
+export const selectCampaignSchema = createSelectSchema(campaigns, {
+  id: z.string().uuid().describe("Campaign ID"),
+  tenantId: z.string().uuid().describe("Tenant ID"),
+  whatsappInstanceId: z.string().uuid().describe("WhatsApp instance ID"),
+  messageTemplateId: z.string().uuid().nullable().describe("Message template ID"),
+  name: z.string().describe("Campaign name"),
+  message: z.string().describe("Campaign message"),
+  status: z.string().describe("Campaign status"),
+  scheduledAt: z.date().nullable().describe("Scheduled start time"),
+  startedAt: z.date().nullable().describe("Actual start time"),
+  completedAt: z.date().nullable().describe("Completion time"),
+  totalRecipients: z.number().describe("Total number of recipients"),
+  sentCount: z.number().describe("Number of messages sent"),
+  failedCount: z.number().describe("Number of failed messages"),
+  isActive: z.boolean().describe("Whether the campaign is active"),
+  timezone: z.string().nullable().describe("Campaign timezone"),
+  language: z.string().nullable().describe("Campaign language"),
+  createdAt: z.date().describe("Creation timestamp"),
+  updatedAt: z.date().describe("Last update timestamp"),
+  deletedAt: z.date().nullable().describe("Deletion timestamp"),
+});
+
+export const updateCampaignSchema = insertCampaignSchema.partial();

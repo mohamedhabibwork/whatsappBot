@@ -57,57 +57,156 @@ function sendAuthEvent(
     }
   }
 }
-
 // Validation schemas
-const registerSchema = z.object({
+export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(1).max(100),
-  language: z.enum(["en", "ar"]).default("en"),
+  language: z.enum(["en", "ar"]).optional(),
   invitationToken: z.string().optional(), // Optional invitation token
 });
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-  rememberMe: z.boolean().optional().default(false),
+export const registerOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    name: z.string(),
+    language: z.string(),
+  }),
 });
 
-const verifyEmailSchema = z.object({
+export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  rememberMe: z.boolean().optional(),
+});
+
+export const verifyEmailSchema = z.object({
   token: z.string(),
 });
 
-const resendVerificationSchema = z.object({
+export const resendVerificationSchema = z.object({
   email: z.string().email(),
 });
 
-const forgotPasswordSchema = z.object({
+export const forgotPasswordSchema = z.object({
   email: z.string().email(),
 });
 
-const resetPasswordSchema = z.object({
+export const resetPasswordSchema = z.object({
   token: z.string(),
   newPassword: z.string().min(8),
 });
 
-const changePasswordSchema = z.object({
+export const changePasswordSchema = z.object({
   currentPassword: z.string(),
   newPassword: z.string().min(8),
 });
 
-const refreshTokenSchema = z.object({
+export const refreshTokenSchema = z.object({
   refreshToken: z.string(),
 });
 
-const updateProfileSchema = z.object({
+export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   language: z.enum(["en", "ar"]).optional(),
+});
+
+export const verifyEmailOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+export const resendVerificationOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+export const forgotPasswordOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+export const resetPasswordOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+export const changePasswordOutputSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+});
+
+export const refreshTokenOutputSchema = z.object({
+  accessToken: z.string(),
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    name: z.string(),
+    emailVerified: z.boolean(),
+    language: z.string(),
+  }),
+});
+
+export const meOutputSchema = z.object({
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    name: z.string(),
+    isActive: z.boolean(),
+    emailVerified: z.boolean(),
+    emailVerifiedAt: z.date().nullable(),
+    language: z.string(),
+    lastLoginAt: z.date().nullable(),
+    createdAt: z.date(),
+  }),
+});
+
+export const updateProfileOutputSchema = z.object({
+  success: z.boolean(),
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    name: z.string(),
+    language: z.string(),
+  }),
+});
+
+export const logoutInputSchema = z.object({ refreshToken: z.string().optional() });
+
+export const logoutOutputSchema = z.object({
+  success: z.boolean(),
+});
+
+export const loginOutputSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string().optional(),
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    name: z.string(),
+    emailVerified: z.boolean(),
+    language: z.string(),
+  }),
 });
 
 export const authRouter = router({
   // Register new user
   register: publicProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/auth/register",
+        tags: ["auth"],
+        summary: "Register a new user",
+        description: "Create a new user account with email verification",
+        protect: false,
+      },
+    })
     .input(registerSchema)
+    .output(registerOutputSchema)
     .mutation(async ({ input, ctx }) => {
       // Validate password strength
       const passwordValidation = validatePasswordStrength(input.password);
@@ -189,7 +288,7 @@ export const authRouter = router({
           email: input.email,
           password: hashedPassword,
           name: input.name,
-          language: input.language,
+          language: input.language || "en",
         } as NewUser)
         .returning({
           id: users.id,
@@ -198,11 +297,18 @@ export const authRouter = router({
           language: users.language,
         });
 
+      if (!newUser) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: input.language === "ar" ? "فشل إنشاء المستخدم" : "Failed to create user",
+        });
+      }
+
       // Handle tenant assignment
       if (invitation) {
         // Join existing tenant via invitation
         await ctx.db.insert(userTenantRoles).values({
-          userId: newUser!.id,
+          userId: newUser.id,
           tenantId: invitation.tenantId,
           role: invitation.role,
         } as NewUserTenantRole);
@@ -213,7 +319,7 @@ export const authRouter = router({
           .set({
             status: "accepted",
             acceptedAt: new Date(),
-            acceptedBy: newUser!.id,
+            acceptedBy: newUser.id,
             updatedAt: new Date(),
           })
           .where(eq(tenantInvitations.id, invitation.id));
@@ -228,10 +334,17 @@ export const authRouter = router({
           } as NewTenant)
           .returning();
 
+        if (!newTenant) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: input.language === "ar" ? "فشل إنشاء المستأجر" : "Failed to create tenant",
+          });
+        }
+
         // Assign user as owner of the new tenant
         await ctx.db.insert(userTenantRoles).values({
-          userId: newUser!.id,
-          tenantId: newTenant!.id,
+          userId: newUser.id,
+          tenantId: newTenant.id,
           role: "owner",
         } as NewUserTenantRole);
       }
@@ -241,7 +354,7 @@ export const authRouter = router({
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
       await ctx.db.insert(verificationTokens).values({
-        userId: newUser!.id,
+        userId: newUser.id,
         token: verificationToken,
         type: "email_verification",
         expiresAt,
@@ -257,8 +370,8 @@ export const authRouter = router({
 
       try {
         await mailService.sendVerificationEmail(
-          newUser!.email,
-          newUser!.name,
+          newUser.email,
+          newUser.name,
           verificationUrl,
           input.language,
           24,
@@ -288,7 +401,20 @@ export const authRouter = router({
     }),
 
   // Login
-  login: publicProcedure.input(loginSchema).mutation(async ({ input, ctx }) => {
+  login: publicProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/auth/login",
+        tags: ["auth"],
+        summary: "Login user",
+        description: "Authenticate user and return access token",
+        protect: false,
+      },
+    })
+    .input(loginSchema)
+    .output(loginOutputSchema)
+    .mutation(async ({ input, ctx }) => {
     // Find user
     const [user] = await ctx.db
       .select()
@@ -379,7 +505,18 @@ export const authRouter = router({
 
   // Verify email
   verifyEmail: publicProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/auth/verify-email",
+        tags: ["auth"],
+        summary: "Verify email address",
+        description: "Verify user email using verification token",
+        protect: false,
+      },
+    })
     .input(verifyEmailSchema)
+    .output(verifyEmailOutputSchema)
     .mutation(async ({ input, ctx }) => {
       // Find token
       const [token] = await ctx.db
@@ -462,7 +599,18 @@ export const authRouter = router({
 
   // Resend verification email
   resendVerification: publicProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/auth/resend-verification",
+        tags: ["auth"],
+        summary: "Resend verification email",
+        description: "Send a new verification email to user",
+        protect: false,
+      },
+    })
     .input(resendVerificationSchema)
+    .output(resendVerificationOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const [user] = await ctx.db
         .select()
@@ -526,7 +674,18 @@ export const authRouter = router({
 
   // Forgot password
   forgotPassword: publicProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/auth/forgot-password",
+        tags: ["auth"],
+        summary: "Request password reset",
+        description: "Send password reset email to user",
+        protect: false,
+      },
+    })
     .input(forgotPasswordSchema)
+    .output(forgotPasswordOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const [user] = await ctx.db
         .select()
@@ -583,7 +742,18 @@ export const authRouter = router({
 
   // Reset password
   resetPassword: publicProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/auth/reset-password",
+        tags: ["auth"],
+        summary: "Reset password",
+        description: "Reset user password using reset token",
+        protect: false,
+      },
+    })
     .input(resetPasswordSchema)
+    .output(resetPasswordOutputSchema)
     .mutation(async ({ input, ctx }) => {
       // Validate password strength
       const passwordValidation = validatePasswordStrength(input.newPassword);
@@ -669,7 +839,18 @@ export const authRouter = router({
 
   // Change password (authenticated)
   changePassword: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/auth/change-password",
+        tags: ["auth"],
+        summary: "Change password",
+        description: "Change password for authenticated user",
+        protect: true,
+      },
+    })
     .input(changePasswordSchema)
+    .output(changePasswordOutputSchema)
     .mutation(async ({ input, ctx }) => {
       if (!ctx.userId) {
         throw new TRPCError({
@@ -751,7 +932,18 @@ export const authRouter = router({
 
   // Refresh access token
   refreshToken: publicProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/auth/refresh-token",
+        tags: ["auth"],
+        summary: "Refresh access token",
+        description: "Get new access token using refresh token",
+        protect: false,
+      },
+    })
     .input(refreshTokenSchema)
+    .output(refreshTokenOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const payload = verifyRefreshToken(input.refreshToken);
       if (!payload) {
@@ -815,7 +1007,19 @@ export const authRouter = router({
     }),
 
   // Get current user
-  me: protectedProcedure.query(async ({ ctx }) => {
+  me: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/auth/me",
+        tags: ["auth"],
+        summary: "Get current user",
+        description: "Get authenticated user information",
+        protect: true,
+      },
+    })
+    .output(meOutputSchema)
+    .query(async ({ ctx }) => {
     if (!ctx.userId) {
       throw new TRPCError({
         code: "UNAUTHORIZED",
@@ -851,7 +1055,18 @@ export const authRouter = router({
 
   // Update profile
   updateProfile: protectedProcedure
+    .meta({
+      openapi: {
+        method: "PATCH",
+        path: "/auth/profile",
+        tags: ["auth"],
+        summary: "Update user profile",
+        description: "Update authenticated user profile information",
+        protect: true,
+      },
+    })
     .input(updateProfileSchema)
+    .output(updateProfileOutputSchema)
     .mutation(async ({ input, ctx }) => {
       if (!ctx.userId) {
         throw new TRPCError({
@@ -874,6 +1089,13 @@ export const authRouter = router({
           language: users.language,
         });
 
+      if (!updatedUser) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found",
+        });
+      }
+
       // Send WebSocket event
       sendAuthEvent(
         ctx.userId,
@@ -889,7 +1111,18 @@ export const authRouter = router({
 
   // Logout (revoke refresh token)
   logout: protectedProcedure
-    .input(z.object({ refreshToken: z.string().optional() }))
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/auth/logout",
+        tags: ["auth"],
+        summary: "Logout user",
+        description: "Logout user and revoke refresh token",
+        protect: true,
+      },
+    })
+    .input(logoutInputSchema)
+    .output(logoutOutputSchema)
     .mutation(async ({ input, ctx }) => {
       if (!ctx.userId) {
         throw new TRPCError({
